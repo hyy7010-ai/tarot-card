@@ -1,0 +1,9 @@
+@theme {
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  --color-sunset-purple: #2E0854;
+  --color-sunset-orange: #FF8C00;
+  --color-aurora-pink: #FFB6C1;
+  --color-aurora-blue: #87CEEB;
+  --color-neon-green: #CCFF00;
+}

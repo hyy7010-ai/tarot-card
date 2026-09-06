@@ -1,0 +1,50 @@
+// 恋爱分析的服务端路由，从主项目 server.ts 摘出。
+// 这边独立成项目后，接 express（或任何服务端）时把这段挂上即可。
+// 依赖：./analysis 的 generateRelationshipAnalysis，以及 express.json() 中间件。
+
+  app.post('/api/relationship/analysis', async (req, res) => {
+    const { metrics, imbalance, otherName } = req.body ?? {};
+
+    if (!metrics || typeof metrics !== 'object' || !metrics.sufficient) {
+      return res.status(400).json({ error: '指标数据不足，无法分析' });
+    }
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(503).json({ error: '服务端未配置 GEMINI_API_KEY' });
+    }
+
+    const name = typeof otherName === 'string' && otherName ? otherName : '对方';
+    const m = metrics;
+    const lines = [
+      `样本：${m.totalMessages} 条消息，跨 ${m.spanDays} 天`,
+      `消息条数：我 ${m.me?.messageCount} / ${name} ${m.other?.messageCount}`,
+      `开启对话次数：我 ${m.me?.initiations} / ${name} ${m.other?.initiations}` +
+        (m.myInitiationShare != null ? `（我占 ${Math.round(m.myInitiationShare * 100)}%）` : ''),
+      `回复速度中位数：我 ${m.me?.medianReplyMinutes ?? '—'} 分钟 / ${name} ${m.other?.medianReplyMinutes ?? '—'} 分钟`,
+      `平均每条字数：我 ${m.me?.avgLength} / ${name} ${m.other?.avgLength}`,
+      `提问次数：我 ${m.me?.questionCount} / ${name} ${m.other?.questionCount}`,
+      `让对方等超过 24 小时：我 ${m.me?.leftOtherWaiting} 次 / ${name} ${m.other?.leftOtherWaiting} 次`,
+    ];
+    if (m.otherLatencyTrendPct != null) {
+      lines.push(`${name} 回复速度变化：后半段比前半段${m.otherLatencyTrendPct > 0 ? '慢' : '快'}了 ${Math.abs(m.otherLatencyTrendPct)}%`);
+    }
+
+    const imbalanceSummary = imbalance && typeof imbalance === 'object'
+      ? `失衡度 ${imbalance.score}/100（${imbalance.band}）` +
+        (imbalance.topDriver ? `，主要来源「${imbalance.topDriver.label}」` : '') +
+        (imbalance.leaning ? `，方向：${imbalance.leaning === 'me' ? '我投入更多' : name + ' 投入更多'}` : '')
+      : '（未提供）';
+
+    try {
+      const { generateRelationshipAnalysis } = await import('./src/services/gemini');
+      const text = await generateRelationshipAnalysis({
+        metricsSummary: lines.join('\n'),
+        imbalanceSummary,
+        otherName: name,
+      });
+      res.json({ text });
+    } catch (error: any) {
+      console.error('Relationship analysis error:', error);
+      res.status(502).json({ error: '分析生成失败，请稍后再试' });
+    }
+  });
+

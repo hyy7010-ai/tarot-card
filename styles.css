@@ -1,0 +1,39 @@
+@import "tailwindcss";
+/* 色板来自主项目，卡面配色全靠它 */
+@import "./theme.css";
+
+html, body, #root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  background-color: #120522;
+  color: #fff;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 以下三个是主项目全局 CSS 里的工具类，塔罗的组件直接用了，搬出来时一并带上 */
+
+/* 翻牌用：牌背与牌面同处一个 3D 容器，背面必须藏起来 */
+@utility backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* 牌背中心的辉光点 */
+@utility glow-point {
+  background: radial-gradient(
+    circle,
+    var(--color-aurora-pink) 0%,
+    var(--color-sunset-orange) 45%,
+    transparent 70%
+  );
+  filter: blur(8px);
+}
