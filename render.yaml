@@ -8,8 +8,12 @@ services:
     name: realheart
     runtime: node
     plan: free
+    # ⚠️ 必须显式 --include=dev。
+    #    Render 的 Node 服务默认带 NODE_ENV=production，那样 npm ci 会跳过
+    #    devDependencies —— 而 vite / typescript / tailwindcss 全在里面，
+    #    构建会卡在「找不到 vite」。装了也只影响构建机，不进运行时。
     # build 里带 tsc --noEmit：类型错了就别发上去
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     # server.ts 发 dist/ 的静态文件，并挂上那两条解读接口
     # （接口在 dev 里是 Vite 插件，build 产物里没有，所以必须有这个进程）
     startCommand: npm start
