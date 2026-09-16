@@ -7,10 +7,48 @@ html, body, #root {
 }
 body {
   margin: 0;
-  background-color: #120522;
-  color: #fff;
+  background-color: var(--color-paper);
+  color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * 纸纹。和牌的丝网 / Riso 质感同源 —— 有了它，牌看起来是印在这张纸上的，
+ * 而不是浮在一个纯色块上面。用 SVG 噪声内联，不额外请求资源。
+ */
+@utility paper-grain {
+  position: relative;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.5;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.16'/></svg>");
+  }
+}
+
+/*
+ * 目录式点引线：`谁在开启对话 ⋯⋯⋯⋯ 100% · 0%`。
+ * 这是这套界面的签名排版，也正好是「一项一项摆事实」该有的形状。
+ */
+@utility dot-leader {
+  flex: 1 1 auto;
+  min-width: 1.25rem;
+  border-bottom: 1.5px dotted var(--color-ink-faint);
+  transform: translateY(-0.22em);
+}
+
+/*
+ * 算不出的那一行，点引线转朱红。
+ *
+ * 这是「拒答」在版面上的写法：正常行的点引线跑到一个数字那里停住，
+ * 这一行的跑到「算不出」那里停住 —— 线的颜色变了，说明它抵达的不是同一种东西。
+ * 比把整行调暗强：调暗是道歉，换色是陈述。
+ */
+@utility dot-leader-open {
+  border-bottom-color: rgba(158, 43, 31, 0.45);
 }
 
 /* 以下三个是主项目全局 CSS 里的工具类，塔罗的组件直接用了，搬出来时一并带上 */
@@ -27,13 +65,71 @@ body {
   &::-webkit-scrollbar { display: none; }
 }
 
-/* 牌背中心的辉光点 */
+/*
+ * 牌背中心的辉光点。
+ *
+ * ⚠️ 这里**不许用 filter: blur()**。
+ *    滤镜会让这一层在每次 transform 变化时重新栅格化，而扇形牌堆里有 51 张牌
+ *    同时在滑 —— 51 个 blur 图层一起重栅格，直接掉帧。
+ *    模糊改成「画进渐变本身」：多给两段过渡色，看上去几乎一样，
+ *    但它只是一张普通背景图，transform 变化时合成器直接复用这一层。
+ */
 @utility glow-point {
   background: radial-gradient(
     circle,
     var(--color-aurora-pink) 0%,
-    var(--color-sunset-orange) 45%,
-    transparent 70%
+    var(--color-sunset-orange) 40%,
+    rgba(255, 140, 0, 0.45) 56%,
+    rgba(255, 140, 0, 0.15) 72%,
+    transparent 84%
   );
-  filter: blur(8px);
+}
+
+/*
+ * 扇形牌堆的牌。
+ *
+ * 这 51 张**不走 motion**。
+ * 之前每张是一个 motion.button，于是 focus 一变就有 51 个组件重渲染、
+ * 一堆 JS 弹簧逐帧写 transform。牌堆是这个界面里唯一会同时动几十个元素的地方，
+ * 那点编排能力换不回这个代价。
+ *
+ * 现在：位置由 JS 直接写进行内 transform，过渡交给 CSS，全程在合成器上跑。
+ */
+@utility fan-card {
+  transition: transform 190ms cubic-bezier(0.22, 1, 0.36, 1);
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+/*
+ * 发牌：从一摞里散开。
+ *
+ * 关键帧**只写 from 不写 to** —— 省略 to 时浏览器会插值到元素自己的计算样式，
+ * 也就是每张牌各自的行内 transform。这样一条静态关键帧就能服务 51 个不同的终点，
+ * 不需要为每张牌生成一段 CSS。
+ * backwards 让延迟期间停在 from（叠成一摞），这正是「发牌前」该有的样子。
+ */
+@utility fan-card-deal {
+  animation: fan-deal 560ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  /*
+    关掉动画时，牌立刻落到自己的行内 transform（也就是扇形终态）。
+    这一条同时是个兜底：动画没能播的场合，牌堆是**摊开的**而不是叠成一摞 ——
+    和 App.tsx 顶上那条「动画跑不起来也得看得见东西」是同一个要求。
+  */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/*
+ * 发牌：51 张从圆心一摞里散到圈上。
+ * from 里 translateY 是 0，也就是半径为零 —— 全部叠在中心；
+ * 省略 to，浏览器插值到每张牌各自的行内 transform（自己那个角度和半径）。
+ * 一条静态关键帧服务 51 个不同终点。
+ */
+@keyframes fan-deal {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg) translateY(0px);
+  }
 }

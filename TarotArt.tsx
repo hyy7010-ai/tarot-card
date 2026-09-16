@@ -93,50 +93,120 @@ export function accentFor(suit: Suit): string {
 // ---------------------------------------------------------------------------
 // 大阿卡纳符号：几何线稿，每张 5–15 个元素
 // ---------------------------------------------------------------------------
-const S = { fill: 'none', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
 
 /** 横向 ∞。用贝塞尔而非两个圆——两个圆在小尺寸下会被读成一对眼睛 */
-const LEMNISCATE = (cy: number) => (
-  <path d={`M34 ${cy}C34 ${cy - 8} 46 ${cy - 8} 50 ${cy}C54 ${cy + 8} 66 ${cy + 8} 66 ${cy}C66 ${cy - 8} 54 ${cy - 8} 50 ${cy}C46 ${cy + 8} 34 ${cy + 8} 34 ${cy}Z`} />
+
+/**
+ * 大阿卡纳：**实心色块**，和小阿卡纳同一套语言。
+ *
+ * 旧版是 1.6px 描边的几何符号，而小阿卡纳早已改成实心 ——
+ * 两套语言混在一个牌组里，只要有一张图加载失败就会露馅。
+ *
+ * 配色沿用从实物读出的规矩：**人物用粉，器物用橙**。
+ * 荧光绿只有一个例外：高塔的闪电（母样式里写死的，闪电是高塔的专属符号）。
+ */
+/** 四色油墨里真正上到牌面主体的两支：人物用粉，器物用橙 —— 取自 s03 / m16 实物 */
+const INK = { pink: '#FFB6C1', orange: '#FF8C00' };
+const G = '#CCFF00';
+
+/** 无脸剪影：头 + 长袍。22 张里反复用到，抽出来保证比例一致 */
+const FIG = (cx: number, hy: number, r: number, w: number, bottom: number) => (
+  <>
+    <circle cx={cx} cy={hy} r={r} />
+    <path d={`M${cx} ${hy + r + 1}c-${w} 0-${w * 1.3} ${w} -${w * 1.3} ${w * 1.7}l-1 ${bottom - hy - r - w * 1.7}h${w * 2.6 + 2}l-1 -${bottom - hy - r - w * 1.7}c0-${w * 0.7}-${w * 0.3}-${w}-${w * 1.3}-${w}z`} />
+  </>
 );
 
-const MAJOR_GLYPHS: Record<string, React.ReactNode> = {
-  // 抽象几何符号语言：不描绘人物。线稿画人在这个尺寸下会退化成火柴人和笑脸，
-  // 符号化既更冷峻，也保证 22 张的视觉一致。
-  愚者:     <><path d="M50 22a28 28 0 1 0 20 8" /><circle cx="74" cy="24" r="3.5" /><path d="M50 50v0" /></>,
-  魔术师:   <>{LEMNISCATE(38)}<path d="M50 52v26" /><path d="M40 78h20" /></>,
-  女祭司:   <><path d="M30 24v52M70 24v52" /><path d="M58 34a17 17 0 1 0 0 32 14 14 0 1 1 0-32" /></>,
-  皇后:     <><circle cx="50" cy="40" r="15" /><path d="M50 55v23M38 68h24" /></>,
-  皇帝:     <><rect x="34" y="42" width="32" height="32" /><path d="M50 42V20" /><path d="M42 28l8-8 8 8" /></>,
-  教皇:     <><path d="M50 20v58" /><path d="M32 32h36M36 46h28M40 60h20" /></>,
-  恋人:     <><circle cx="39" cy="50" r="19" /><circle cx="61" cy="50" r="19" /></>,
-  战车:     <><rect x="30" y="34" width="40" height="32" rx="2" /><path d="M40 56l10-12 10 12" /><circle cx="36" cy="74" r="3" /><circle cx="64" cy="74" r="3" /></>,
-  力量:     <>{LEMNISCATE(34)}<path d="M50 48v22" /><path d="M34 74h32" /></>,
-  隐士:     <><path d="M64 20v58" /><path d="M32 46l9-12 9 12-9 12z" /><circle cx="41" cy="46" r="17" /></>,
-  命运之轮: <><circle cx="50" cy="50" r="27" /><circle cx="50" cy="50" r="10" /><path d="M50 23v11M50 66v11M23 50h11M66 50h11M31 31l8 8M61 61l8 8M69 31l-8 8M39 61l-8 8" /></>,
-  正义:     <><path d="M50 20v58M34 78h32" /><path d="M24 34h52" /><path d="M24 34l-8 17h16zM76 34l8 17H68z" /></>,
-  倒吊人:   <><path d="M22 22h56" /><path d="M50 22v16" /><path d="M28 38h44L50 80z" /></>,
-  死亡:     <><path d="M24 42a30 30 0 0 1 52 0" /><path d="M70 38L46 80" /><path d="M28 62h38" /></>,
-  节制:     <><path d="M50 44L34 20h32zM50 56l16 24H34z" /><path d="M26 50h48" /></>,
-  恶魔:     <><circle cx="50" cy="50" r="26" /><path d="M50 72L62.9 32.2 29.1 56.8h41.8L37.1 32.2z" /></>,
-  高塔:     <><path d="M34 78V38h32v40" /><path d="M28 38l22-18 22 18" /><path d="M56 44l-10 14h9l-7 14" /><circle cx="24" cy="58" r="2" /><circle cx="78" cy="50" r="2" /></>,
-  星星:     <><path d="M50 18l4.5 27.5L78 50l-23.5 4.5L50 82l-4.5-27.5L22 50l23.5-4.5z" /><path d="M50 34l16 16-16 16-16-16z" opacity="0.5" /></>,
-  月亮:     <><path d="M60 22a21 21 0 1 0 0 38 17 17 0 1 1 0-38" /><path d="M26 78V56h11v22M63 78V56h11v22" /><path d="M46 78V66h8v12" /></>,
-  太阳:     <><circle cx="50" cy="50" r="17" /><path d="M50 18v9M50 73v9M18 50h9M73 50h9M27 27l6.5 6.5M66.5 66.5L73 73M73 27l-6.5 6.5M33.5 66.5L27 73" /></>,
-  审判:     <><path d="M20 76h60" /><path d="M32 76V58M50 76V46M68 76V64" /><path d="M24 38l26-14 26 14" /></>,
-  世界:     <><ellipse cx="50" cy="50" rx="21" ry="31" /><path d="M50 30v40M34 50h32" /><path d="M28 24l-7-7M72 24l7-7M28 76l-7 7M72 76l7 7" /></>,
+const MAJOR_GLYPHS: Record<string, { pink?: React.ReactNode; orange?: React.ReactNode; green?: React.ReactNode }> = {
+  愚者: {
+    pink: <>{FIG(40, 26, 6.5, 7, 74)}</>,
+    orange: <><path d="M62 22h3v46h-3z" /><path d="M64 20l10 4-10 5z" /><path d="M14 78h34l-3 8H14z" /></>,
+  },
+  魔术师: {
+    pink: <>{FIG(50, 34, 7, 7.5, 80)}<path d="M50 20a9 5 0 0 1 9 5 9 5 0 0 1-18 0 9 5 0 0 1 9-5zm0 2.4a6.6 2.6 0 0 0 0 5.2 6.6 2.6 0 0 0 0-5.2z" /></>,
+    orange: <><rect x="60" y="26" width="3" height="26" rx="1.5" transform="rotate(24 61 39)" /></>,
+  },
+  女祭司: {
+    pink: <><rect x="22" y="22" width="9" height="58" /><rect x="69" y="22" width="9" height="58" /></>,
+    orange: <><path d="M56 34a15 15 0 1 0 0 30 12 12 0 1 1 0-30z" /></>,
+  },
+  皇后: {
+    pink: <>{FIG(50, 40, 7.5, 9, 82)}<path d="M39 30l3-11 8 8 8-8 3 11z" /></>,
+    orange: <><path d="M22 82c0-10 2-18 4-18s4 8 4 18zM70 82c0-10 2-18 4-18s4 8 4 18z" /></>,
+  },
+  皇帝: {
+    pink: <>{FIG(50, 38, 7, 8, 78)}</>,
+    orange: <><path d="M34 26l4-10 5 7 7-9 7 9 5-7 4 10z" /><rect x="28" y="78" width="44" height="6" rx="2" /></>,
+  },
+  教皇: {
+    pink: <>{FIG(50, 32, 7, 8, 76)}<circle cx="30" cy="70" r="5" /><circle cx="70" cy="70" r="5" /></>,
+    orange: <><rect x="48" y="14" width="4" height="34" /><rect x="38" y="20" width="24" height="4" /><rect x="42" y="29" width="16" height="4" /></>,
+  },
+  恋人: {
+    pink: <>{FIG(32, 44, 6.5, 6.5, 80)}{FIG(68, 44, 6.5, 6.5, 80)}</>,
+    orange: <><path d="M50 14c10 0 20 6 24 12-8-3-16-4-24-4s-16 1-24 4c4-6 14-12 24-12z" /></>,
+  },
+  战车: {
+    pink: <>{FIG(50, 28, 6.5, 7, 56)}</>,
+    orange: <><rect x="28" y="54" width="44" height="20" rx="4" /><circle cx="36" cy="80" r="5" /><circle cx="64" cy="80" r="5" /></>,
+  },
+  力量: {
+    pink: <>{FIG(38, 36, 6.5, 7, 80)}<path d="M50 20a9 5 0 0 1 9 5 9 5 0 0 1-18 0 9 5 0 0 1 9-5zm0 2.4a6.6 2.6 0 0 0 0 5.2 6.6 2.6 0 0 0 0-5.2z" /></>,
+    orange: <><circle cx="66" cy="56" r="13" /><path d="M56 46l-6-6 8 1zM76 46l6-6-8 1zM66 69l-4 9h8z" /></>,
+  },
+  隐士: {
+    pink: <><path d="M44 24c-8 0-13 7-13 16l-4 42h34l-4-42c0-9-5-16-13-16z" /></>,
+    orange: <><rect x="66" y="20" width="3.5" height="56" rx="1.5" /><path d="M60 40h14v14H60z" /></>,
+  },
+  命运之轮: {
+    orange: <><path fillRule="evenodd" d="M50 22a28 28 0 1 0 0 56 28 28 0 1 0 0-56zm0 9a19 19 0 1 1 0 38 19 19 0 1 1 0-38z" /><path d="M47 20h6v60h-6z" /><path d="M20 47h60v6H20z" transform="rotate(45 50 50)" /><path d="M20 47h60v6H20z" transform="rotate(-45 50 50)" /></>,
+    pink: <><circle cx="50" cy="50" r="8" /></>,
+  },
+  正义: {
+    pink: <>{FIG(50, 32, 7, 8, 78)}</>,
+    orange: <><rect x="18" y="30" width="64" height="4" rx="2" /><path d="M12 34l-6 13h12zM88 34l6 13H82z" /></>,
+  },
+  倒吊人: {
+    pink: <><circle cx="50" cy="70" r="7" /><path d="M50 63c-6 0-9-5-9-11l-2-22h22l-2 22c0 6-3 11-9 11z" /></>,
+    orange: <><rect x="18" y="16" width="64" height="5" rx="2" /><rect x="48" y="19" width="4" height="12" /></>,
+  },
+  死亡: {
+    pink: <><circle cx="42" cy="34" r="13" /><path d="M42 47c-9 0-13 7-13 15l-2 20h30l-2-20c0-8-4-15-13-15z" /></>,
+    orange: <><path d="M62 18c10 6 16 18 16 30h-6c0-10-4-19-12-25z" /><rect x="72" y="46" width="4" height="34" rx="2" /></>,
+  },
+  节制: {
+    pink: <>{FIG(50, 26, 6.5, 7, 60)}</>,
+    orange: <><path d="M24 54h16a8 9 0 0 1-16 0z" /><path d="M60 66h16a8 9 0 0 1-16 0z" /><path d="M40 56c8 2 12 5 20 9l-2 4c-8-4-12-7-20-9z" /></>,
+  },
+  恶魔: {
+    pink: <><circle cx="50" cy="34" r="12" /><path d="M50 46c-9 0-13 6-13 13l-2 13h30l-2-13c0-7-4-13-13-13z" /><path d="M36 26l-6-10 10 4zM64 26l6-10-10 4z" /></>,
+    orange: <><rect x="30" y="74" width="40" height="12" rx="2" /></>,
+  },
+  高塔: {
+    pink: <><path d="M34 80V40h32v40z" /><path d="M28 40l22-18 22 18z" /></>,
+    green: <><path d="M62 12l-14 24h9l-8 22 18-26h-9z" /></>,
+  },
+  星星: {
+    orange: <><path d="M50 12l5.5 29L84 50l-28.5 9L50 88l-5.5-29L16 50l28.5-9z" /></>,
+    pink: <><path d="M26 74h13a6.5 8 0 0 1-13 0z" /><path d="M61 74h13a6.5 8 0 0 1-13 0z" /></>,
+  },
+  月亮: {
+    orange: <><path d="M58 16a20 20 0 1 0 0 40 16 16 0 1 1 0-40z" /></>,
+    pink: <><path d="M18 84V58l8-8 8 8v26z" /><path d="M66 84V58l8-8 8 8v26z" /><path d="M46 84V72h8v12z" /></>,
+  },
+  太阳: {
+    orange: <><circle cx="50" cy="50" r="19" /><path d="M47 12h6v12h-6zM47 76h6v12h-6zM12 47h12v6H12zM76 47h12v6H76z" /><path d="M22 26l4-4 9 9-4 4zM69 69l4-4 9 9-4 4zM74 22l4 4-9 9-4-4zM27 69l4 4-9 9-4-4z" /></>,
+  },
+  审判: {
+    orange: <><path d="M74 20l10-6v14l-10-4z" /><rect x="40" y="22" width="36" height="4" rx="2" /></>,
+    pink: <>{FIG(30, 52, 6, 6, 82)}{FIG(50, 46, 6, 6, 82)}{FIG(70, 54, 6, 6, 82)}</>,
+  },
+  世界: {
+    pink: <>{FIG(50, 36, 7, 7.5, 74)}</>,
+    orange: <><path fillRule="evenodd" d="M50 12c-14 0-24 17-24 38s10 38 24 38 24-17 24-38-10-38-24-38zm0 8c9 0 16 13 16 30s-7 30-16 30-16-13-16-30 7-30 16-30z" /></>,
+  },
 };
 
-// ---------------------------------------------------------------------------
-// 小阿卡纳：花色符号 + 点数排布
-// ---------------------------------------------------------------------------
-/**
- * 花色符号：**实心色块**，不是描边。
- *
- * 参照 public/tarot/s03.jpg（宝剑三，目前唯一出图的小阿卡纳）——
- * 那是另外 55 张该长的样子：器物是整块橙色，边缘干净，没有线框。
- * 旧版是 1.6px 描边的空心符号，和插画完全不是一个语言。
- */
 function SuitMark({ suit, x, y, scale = 1 }: { suit: Exclude<Suit, 'major'>; x: number; y: number; scale?: number }) {
   const g = {
     wands: <>
@@ -214,20 +284,20 @@ const COURT_GLYPH: Record<string, React.ReactNode> = {
   </>,
 };
 
-/** 四色油墨里真正上到牌面主体的两支：人物用粉，器物用橙 —— 取自 s03 / m16 实物 */
-const INK = { pink: '#FFB6C1', orange: '#FF8C00' };
 
 /** 牌面主图形 */
 export function TarotGlyph({ name, className = '' }: { name: string; className?: string }) {
   const id = identifyCard(name);
 
-  // 大阿卡纳 22 张全都有插画，这条线稿只在图加载失败时才会露面，维持原来的描边即可
+  // 大阿卡纳：粉 / 橙 / 绿三层分开上色，和小阿卡纳同一套实心语言
   if (id.suit === 'major') {
+    const g = MAJOR_GLYPHS[name] ?? MAJOR_GLYPHS['星星'];
     return (
       <svg viewBox="0 0 100 100" className={className} aria-hidden="true">
-        <g {...S} stroke={accentFor(id.suit)} opacity={0.92}>
-          {MAJOR_GLYPHS[name] ?? MAJOR_GLYPHS['星星']}
-        </g>
+        {g.orange && <g fill={INK.orange}>{g.orange}</g>}
+        {g.pink && <g fill={INK.pink}>{g.pink}</g>}
+        {/* 荧光绿只有高塔的闪电用得到 —— 母样式里写死的规矩 */}
+        {g.green && <g fill={G}>{g.green}</g>}
       </svg>
     );
   }

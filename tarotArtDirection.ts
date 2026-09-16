@@ -15,6 +15,10 @@ export const MASTER_STYLE = [
   // 以下每一条都对应用户选中样张里稳定出现的特征，改动前先回看那三张。
   'Tarot card illustration, tall portrait composition, full-bleed artwork.',
   'Silkscreen / risograph print: flat solid inks, visible paper grain, slight misregistration, no gradients, no 3D, no photorealism.',
+  // 2026-09-11 补：原来的母样式从没写过背景色，于是模型每次自由发挥 ——
+  // 试出第一张小阿卡纳时背景跑成了藏青，和已有的 22 张深紫对不上。
+  // 底色必须钉死，否则 55 张会各是各的颜色。
+  'Strict four-ink palette, no other colours anywhere: the whole background is deep violet-purple #2E0854 (never navy, never blue-grey, never black), solid pink #FFB6C1, orange #FF8C00, and acid green #CCFF00.',
   'Acid green #CCFF00 appears ONLY as a few small four-point star sparkles - never as a large shape. Exception: the lightning bolt on The Tower and the serpent on The Lovers or The Devil, which are that card own motif.',
   'Figures are faceless, elongated, art-deco silhouettes in solid pink — never a detailed face, never outlined.',
   'Composition: one focal symbol centered; a crescent moon near the top; small four-point star sparkles; soft pink cloud banks may frame the top and bottom edges; fine vertical rain or grain lines allowed as texture.',
@@ -81,19 +85,19 @@ const PIP_SCENES: Record<string, Record<number, string>> = {
     7: 'a faceless silhouette before seven cups floating in clouds, each holding a different vision: a castle, jewels, a wreath, a dragon, a serpent, a veiled figure, a head',
     8: 'a faceless figure walking away from eight stacked cups toward mountains under an eclipse moon',
     9: 'a satisfied faceless figure seated arms crossed before a curved shelf of nine cups',
-    10: 'a rainbow of ten cups over a faceless couple with arms raised and two dancing children, a house and river below',
+    10: 'an arc of ten cups curving across the sky over a faceless couple with arms raised and two dancing children, a house and river below',
   },
   宝剑: {
     1: 'a hand from a cloud gripping an upright sword crowned with a wreath, barren mountains below',
     2: 'a blindfolded seated faceless figure holding two crossed swords, a calm sea and crescent moon behind',
-    3: 'a red heart pierced by three swords against grey rain clouds',
+    3: 'a solid pink heart pierced by three orange swords against deep violet storm clouds and vertical rain',
     4: 'a faceless figure lying in repose on a tomb, hands in prayer, three swords on the wall and one beneath',
     5: 'a faceless figure gathering three swords with a smug posture, two dejected figures walking away, two swords on the ground, a stormy sky',
     6: 'a ferryman poling a boat carrying a cloaked faceless figure and child across still water, six swords standing in the bow',
     7: 'a faceless figure tiptoeing away from a camp carrying five swords, two left standing behind',
     8: 'a bound and blindfolded faceless figure standing in shallow water surrounded by eight swords planted in the ground, a castle on a cliff behind',
     9: 'a faceless figure sitting up in bed with face in hands, nine swords hanging horizontally on the dark wall',
-    10: 'a prone faceless figure with ten swords in the back, a black sky lifting to a thin dawn over still water',
+    10: 'a prone faceless figure with ten swords in the back, a deep violet sky lifting to a thin orange dawn over still water',
   },
   星币: {
     1: 'a hand from a cloud holding a single large pentacle over a walled garden with an arched gateway',

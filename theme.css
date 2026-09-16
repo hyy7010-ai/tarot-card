@@ -1,9 +1,39 @@
 @theme {
-  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  /*
+   * 两套颜色，用途完全分开，改之前先想清楚动的是哪一套。
+   *
+   * ① 牌的四色油墨 —— 51 张插画的母样式锁死的，界面不许跟着改。
+   *    TarotArt / TarotCard 里的牌背、矢量兜底牌面用它们。
+   * ② 界面的纸与墨 —— 除牌以外的一切。
+   *
+   * 以前这两套是同一套：界面的标题、标签、按钮、进度条全在用牌的油墨，
+   * 于是牌和界面抢同一组颜色，谁也不突出。现在界面退成纸和墨，
+   * 屏幕上唯一的彩色物件是牌本身。
+   */
+
+  /* ① 牌的四色油墨。不要在界面里用 */
   --color-sunset-purple: #2E0854;
   --color-sunset-orange: #FF8C00;
   --color-aurora-pink: #FFB6C1;
   --color-aurora-blue: #87CEEB;
   --color-neon-green: #CCFF00;
+
+  /* ② 界面：纸与墨 */
+  --color-paper: #F2EEE4;
+  /* 抬起一层的纸面（弹窗、输入框）。和底纸差 3.5% 亮度，不靠阴影区分 */
+  --color-paper-raised: #FBF9F3;
+  --color-ink: #17130E;
+  --color-ink-mid: #6E665A;
+  --color-ink-faint: #A39A8B;
+  /* 朱红。一屏最多出现两次：一个结论，一个动作 */
+  --color-vermilion: #9E2B1F;
+
+  /*
+   * 正文不再从 Inter 起头 —— 它什么都不说明，而且中文根本落不到它身上。
+   * 中文交给 PingFang SC（macOS/iOS 自带，质量最好）。
+   */
+  --font-sans: "PingFang SC", "Helvetica Neue", "Microsoft YaHei", sans-serif;
+  --font-serif: "Noto Serif SC", "Songti SC", "STSong", "SimSun", serif;
+  /* 数字和微标签走等宽：印刷品的语言，也让 tabular-nums 真的对齐 */
+  --font-mono: "SF Mono", "SFMono-Regular", "Menlo", "Courier New", monospace;
 }

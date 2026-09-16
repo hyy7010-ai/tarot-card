@@ -2,65 +2,33 @@ import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
+import { ROUTES, respond } from './api';
+
 /**
- * 解读接口。
+ * dev 的两条解读接口。
  *
  * 放在 dev server 里而不是前端，只有一个原因：GEMINI_API_KEY 不能进 bundle。
- * 生产环境请用同样的逻辑自己起一个 /api/tarot/reading —— 见 README。
- */
-/**
- * 两条解读接口。
- *
- * 放在 dev server 里而不是前端，只有一个原因：GEMINI_API_KEY 不能进 bundle。
- * 生产环境请用同样的逻辑自己起这两个路由 —— 见 README。
+ * **逻辑全在 api.ts**，这里只负责把 Vite 的请求喂进去 ——
+ * 生产的 server.ts 调的是同一份，两边不会漂。
  */
 function readingApis(): Plugin {
-  /** 两条路由的公共部分：读 body、按需加载服务端模块、统一错误形状 */
-  const route = (
-    server: import('vite').ViteDevServer,
-    path: string,
-    mod: string,
-    call: (m: any, body: any) => Promise<string | undefined>,
-    /** body 缺字段时返回一句人话；返回 null 表示放行 */
-    check: (body: any) => string | null = () => null,
-  ) => {
-    server.middlewares.use(path, async (req, res) => {
-      const json = (status: number, body: unknown) => {
-        res.statusCode = status;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify(body));
-      };
-      if (req.method !== 'POST') return json(405, { error: '只接受 POST' });
-      let body: any;
-      try {
-        const chunks: Buffer[] = [];
-        for await (const c of req) chunks.push(c as Buffer);
-        body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-      } catch {
-        // 请求本身就是坏的：400，而且不要把解析器的英文报错甩到用户界面上
-        return json(400, { error: '请求格式错误' });
-      }
-      const bad = check(body);
-      // 缺字段是调用方的错，别让它变成一句内部报错甩到界面上
-      if (bad) return json(400, { error: bad });
-      try {
-        // 按需加载：没配 key 的人也能跑到解读之前的每一屏
-        const text = await call(await server.ssrLoadModule(mod), body);
-        json(200, { text });
-      } catch (e) {
-        json(500, { error: e instanceof Error ? e.message : '解读失败' });
-      }
-    });
-  };
-
   return {
     name: 'realheart-reading-apis',
     configureServer(server) {
-      route(server, '/api/tarot/reading', '/reading.ts', (m, b) =>
-        m.generateTarotReading(b.question ?? '', b.cards ?? [], b.facts ?? []));
-      route(server, '/api/relationship/analysis', '/analysis.ts', (m, b) =>
-        m.generateRelationshipAnalysis(b.metrics, b.imbalance, b.otherName ?? '对方'),
-        b => (b?.metrics?.me && b?.imbalance ? null : '缺少已算好的指标'));
+      for (const route of ROUTES) {
+        server.middlewares.use(route.path, async (req, res) => {
+          if (req.method !== 'POST') {
+            res.statusCode = 405;
+            res.setHeader('Content-Type', 'application/json; charset=utf-8');
+            return res.end(JSON.stringify({ error: '只接受 POST' }));
+          }
+          const chunks: Buffer[] = [];
+          for await (const c of req) chunks.push(c as Buffer);
+          // ssrLoadModule：dev 要 TS 和 HMR，不能用静态 import
+          await respond(route, Buffer.concat(chunks).toString('utf-8'), res,
+            spec => server.ssrLoadModule(spec));
+        });
+      }
     },
   };
 }
@@ -68,5 +36,30 @@ function readingApis(): Plugin {
 export default defineConfig(({ mode }) => {
   // reading.ts 走 process.env，Vite 默认不把 .env 灌进去，这里手动补上
   Object.assign(process.env, loadEnv(mode, process.cwd(), 'GEMINI'));
-  return { plugins: [react(), tailwindcss(), readingApis()] };
+  /*
+    端口跟着 PORT 环境变量走。
+
+    Vite 默认只认 server.port（5173），端口被占就自己 +1 试下一个 ——
+    于是外面分配的端口和它实际监听的端口对不上，预览就连不上。
+    这个项目不需要固定端口：两个接口都是相对路径 /api/...，也没有 OAuth 回调。
+  */
+  const port = Number(process.env.PORT) || undefined;
+  return {
+    plugins: [react(), tailwindcss(), readingApis()],
+    server: {
+      /*
+        绑 127.0.0.1，不是默认的 'localhost'。
+
+        'localhost' 在 macOS 上会解析到 ::1，于是 Vite **只监听 IPv6**，
+        而浏览器把 localhost 解析成 IPv4 127.0.0.1 —— 那边没人听，
+        报出来就是 ERR_CONNECTION_REFUSED，看着像服务没起，其实起了。
+
+        ⚠️ 不要图省事改成 '0.0.0.0'：那会把这个带着 GEMINI key、
+           而且首屏写着「聊天原文不会离开这台设备」的服务暴露到整个局域网。
+           回环就够了。
+      */
+      host: '127.0.0.1',
+      ...(port ? { port, strictPort: true } : {}),
+    },
+  };
 });

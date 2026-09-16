@@ -280,6 +280,9 @@ export function computeImbalance(m: RelationshipMetrics): Imbalance {
     // 发起率：偏离 50% 的程度，全由一方发起为 100
     drivers.push({
       key: 'initiation',
+      // ⚠️ 这些 label 会被报告写成「最主要的失衡来自「X」」，
+      //    读者接着要在下面的逐项里找到 X —— 所以必须和报告里那一行的名字**逐字一致**。
+      //    以前 length 叫「消息长度」而行叫「平均每条字数」，等于指了一个页面上没有的行。
       label: '谁在开启对话',
       score: Math.round(Math.abs(m.myInitiationShare - 0.5) * 2 * 100),
     });
@@ -287,12 +290,12 @@ export function computeImbalance(m: RelationshipMetrics): Imbalance {
   if (m.me.medianReplyMinutes !== null && m.other.medianReplyMinutes !== null) {
     drivers.push({
       key: 'latency',
-      label: '回复速度',
+      label: '回复速度中位数',
       score: ratioToScore(m.me.medianReplyMinutes, m.other.medianReplyMinutes),
     });
   }
   if (m.me.avgLength > 0 || m.other.avgLength > 0) {
-    drivers.push({ key: 'length', label: '消息长度', score: ratioToScore(m.me.avgLength, m.other.avgLength) });
+    drivers.push({ key: 'length', label: '平均每条字数', score: ratioToScore(m.me.avgLength, m.other.avgLength) });
   }
   if (m.me.questionCount > 0 || m.other.questionCount > 0) {
     drivers.push({ key: 'questions', label: '提问次数', score: ratioToScore(m.me.questionCount, m.other.questionCount) });

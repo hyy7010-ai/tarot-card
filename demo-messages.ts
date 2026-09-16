@@ -8,7 +8,7 @@
 import { ChatMessage } from './types';
 
 export const MY_UID = 'me';
-export const OTHER_NAME = '他';
+export const OTHER_NAME = 'TA';
 
 /** [距开始的分钟数, 发送者, 内容] */
 const SCRIPT: [number, string, string][] = [

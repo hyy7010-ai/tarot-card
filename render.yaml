@@ -1,0 +1,21 @@
+# Render 蓝图。在 Render 上选 Blueprint、指到这个仓库就会照它建服务。
+#
+# ⚠️ GEMINI_API_KEY 故意写成 sync: false —— 它不会出现在这个文件里，
+#    要在 Render 的 Environment 页面手工填。密钥不进仓库，这条不要改。
+#    不填也能部署：解读会返回带「未接入模型」标记的示例文案（见 mock.ts）。
+services:
+  - type: web
+    name: realheart
+    runtime: node
+    plan: free
+    # build 里带 tsc --noEmit：类型错了就别发上去
+    buildCommand: npm ci && npm run build
+    # server.ts 发 dist/ 的静态文件，并挂上那两条解读接口
+    # （接口在 dev 里是 Vite 插件，build 产物里没有，所以必须有这个进程）
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: NODE_VERSION
+        value: "20"
