@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>小红书首图 · 真心塔罗</title>
+<!--
+  小红书首图，1080×1440（3:4，信息流里占位最大的比例）。
+
+  用法：用浏览器打开 http://localhost:5173/xhs-covers.html，
+       对每张 .cover 截图即可（它本身就是 1080×1440）。
+       导出完可以删掉这个文件，它不参与构建（Vite 只打包 index.html）。
+
+  两张封面故意住在不同的世界里：
+    数据那张走「纸与墨」—— 小红书信息流全是白底和渐变，
+      一张暖色印刷品反而跳出来，而且它长得就是应用本身的样子。
+    插画那张走「牌的深紫」—— 满版画面，几乎不要版式，让画自己说话。
+
+  ⚠️ 缩略图约 240px 宽。所有正文字号在 1080 尺寸下 ≥60px，
+     细笔画和低对比一律不用，否则在信息流里就是一团糊。
+-->
+<style>
+  :root{
+    --paper:#F2EEE4; --paper-raised:#FBF9F3;
+    --ink:#17130E; --ink-mid:#6E665A; --ink-faint:#A39A8B;
+    --vermilion:#9E2B1F;
+    --violet:#2E0854; --pink:#FFB6C1; --orange:#FF8C00; --green:#CCFF00;
+    --serif:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+    --mono:"SF Mono","SFMono-Regular","Menlo","Courier New",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#555;padding:40px;display:flex;flex-direction:column;gap:40px;align-items:flex-start}
+
+  .cover{
+    width:1080px;height:1440px;position:relative;overflow:hidden;flex:none;
+  }
+  /* 纸纹和应用里同一套：内联 SVG 噪声，让它看起来是印在纸上的 */
+  .grain::after{
+    content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.16'/></svg>");
+  }
+
+  /* ---------- A · 数据（纸与墨） ---------- */
+  .a{background:#E8E0CE;padding:96px 88px;display:flex;flex-direction:column}
+  .a .kicker{
+    font:600 30px/1 var(--mono);letter-spacing:.24em;text-transform:uppercase;
+    color:var(--vermilion);
+  }
+  .a .rule{height:3px;background:var(--ink);margin-top:26px}
+  .a .headline{
+    font:600 132px/1.18 var(--serif);color:var(--ink);margin-top:72px;letter-spacing:.01em;
+  }
+  .a .headline em{font-style:normal;color:var(--vermilion)}
+  /* 答案：不抢标题，但要比脚注重。它是这张封面的逻辑枢纽 */
+  .a .answer{margin-top:76px;border-left:5px solid var(--vermilion);padding-left:30px}
+  .a .day{font:600 56px/1.35 var(--serif);color:var(--ink)}
+  .a .date{font:400 38px/1 var(--mono);letter-spacing:.1em;color:var(--ink-mid);margin-top:18px}
+
+  /* 点引线：这套界面的签名排版，封面直接用它，不另造一个 before/after 卡片 */
+  .a .table{margin-top:auto;padding-bottom:8px}
+  .a .row{display:flex;align-items:baseline;gap:22px;padding:30px 0}
+  .a .row + .row{border-top:1px solid rgba(23,19,14,.14)}
+  .a .lab{font:400 44px/1 var(--serif);color:var(--ink);flex:none}
+  .a .lead{
+    flex:1 1 auto;min-width:40px;border-bottom:3px dotted var(--ink-faint);
+    transform:translateY(-.24em);
+  }
+  .a .num{
+    font:600 128px/.8 var(--serif);font-variant-numeric:tabular-nums;
+    color:var(--vermilion);flex:none;
+  }
+  .a .row.dim .num{color:var(--ink)}
+  .a .foot{
+    margin-top:52px;font:400 34px/1.65 var(--mono);color:var(--ink-mid);
+    border-left:4px solid var(--vermilion);padding-left:26px;
+  }
+
+  /*
+    ⚠️ 封面的纸比应用深一档：#E8E0CE，不是应用里的 #F2EEE4。
+
+    量过：#F2EEE4 是 L*94.2，小红书信息流底约 #F5F5F5 是 L*96.5，
+    只差 2.4%，低于「相邻表面至少差 4%」的阈值 —— 缩略图上卡片边界会溶进背景。
+    #E8E0CE 是 L*89.4，差 7.2%，过线。
+
+    另外两个解法试过都不如它：
+      版边（纸印在深紫板上）边界最强，但吃掉两边各 7%，标题明显变小；
+      顶部铺一条实心朱红最抓眼，但违反 theme.css 那条
+      「朱红一屏最多出现两次：一个结论，一个动作」—— 那是把预算花在装饰上。
+
+    这是**封面的纸**，不是应用的纸。信息流不是一块你已经在看的屏幕，
+    它得先让人看见自己是一张卡。应用那边一个字都不要改。
+  */
+
+  /* ---------- B · 插画（牌的深紫） ---------- */
+  .b{background:var(--violet)}
+  .b img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  /* 底部压一层同色渐隐，让字压得住画，而不是给画加一层灰 */
+  .b .scrim{
+    position:absolute;inset:auto 0 0 0;height:56%;
+    background:linear-gradient(to top,#2E0854 22%,rgba(46,8,84,.92) 48%,rgba(46,8,84,0));
+  }
+  .b .copy{position:absolute;inset:auto 80px 84px 80px}
+  .b .tag{
+    font:600 28px/1 var(--mono);letter-spacing:.26em;text-transform:uppercase;color:var(--green);
+  }
+  .b .title{
+    font:600 104px/1.24 var(--serif);color:var(--paper);margin-top:30px;letter-spacing:.01em;
+  }
+  .b .meta{
+    font:400 32px/1 var(--mono);letter-spacing:.14em;color:var(--pink);margin-top:34px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= A · 数据 / 时间线 ================= -->
+<section class="cover a grain">
+  <div class="kicker">Realheart · 恋爱分析</div>
+  <div class="rule"></div>
+
+  <!--
+    标题必须短到断行可控。第一版 24 字，自动换行把「但说不清哪天」拆成
+    「但说不清 / 清哪天」，在缩略图上就是一团糊。
+    现在 10 字、两行写死，而且它是一句读者心里已经在问的话 ——
+    下面那两个数字负责回答它。
+  -->
+  <h1 class="headline">是从哪天<br><em>开始不对劲的</em></h1>
+
+  <!--
+    标题和表格之间原来是一大块空白，读着像内容没排完。
+    更要命的是：封面问了「是从哪天」，却从没回答**是哪天** ——
+    那块空白该放的正是这个答案，不是装饰。
+    于是逻辑闭合成：问哪天 → 是这天 → 前后各多少。
+  -->
+  <div class="answer">
+    <div class="day">他换了新工作那天</div>
+    <div class="date">2026.07.20</div>
+  </div>
+
+  <div class="table">
+    <div class="row dim">
+      <span class="lab">之前</span><span class="lead"></span><span class="num">68</span>
+    </div>
+    <div class="row">
+      <span class="lab">之后</span><span class="lead"></span><span class="num">100</span>
+    </div>
+    <p class="foot">把聊天记录从那天切开，前后各算一遍。<br>数不出来的，它就说数不出来。</p>
+  </div>
+</section>
+
+<!-- ================= B · 插画 ================= -->
+<section class="cover b">
+  <!-- 高塔：这副牌里唯一打破「居中 + 弯月压顶」公式的一张，也是唯一让荧光绿变成大块的 -->
+  <img src="/tarot/m16.jpg" alt="">
+  <div class="scrim"></div>
+  <div class="copy">
+    <div class="tag">51 / 78</div>
+    <!--
+      ⚠️ 这里一度写的是「画了一整副塔罗牌」，而 Tarot.tsx 里早就纠正过这个说法：
+         「整副」是"完整的一副"，而完整的塔罗是 78 张，现在只有 51 张。
+         封面不能把产品已经改掉的错重犯一遍 —— 差多少就写多少。
+    -->
+    <h1 class="title">我给自己做的 App<br>画了 51 张塔罗牌</h1>
+    <div class="meta">四色油墨 · 无脸剪影 · 丝网印</div>
+  </div>
+</section>
+
+<script>
+/*
+  ?only=a / ?only=b  单独渲染一张，去掉边距和另一张。
+  这是给无头 Chrome 截图用的：不这么做，截出来会带上灰底和第二张的一角。
+    export-covers.sh 会调它。
+*/
+const only = new URLSearchParams(location.search).get('only');
+if (only) {
+  document.body.style.cssText = 'margin:0;padding:0;background:#fff';
+  document.querySelectorAll('.cover').forEach(c => {
+    const keep = (only === 'a' && c.classList.contains('a'))
+              || (only === 'b' && c.classList.contains('b'));
+    if (!keep) c.remove();
+  });
+}
+</script>
+</body>
+</html>

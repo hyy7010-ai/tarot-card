@@ -1,3 +1,6 @@
 node_modules
 dist
 .env
+
+# 小红书首图的导出产物（用 ./export-covers.sh 生成）
+covers/
