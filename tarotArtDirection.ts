@@ -21,7 +21,17 @@ export const MASTER_STYLE = [
   'Strict four-ink palette, no other colours anywhere: the whole background is deep violet-purple #2E0854 (never navy, never blue-grey, never black), solid pink #FFB6C1, orange #FF8C00, and acid green #CCFF00.',
   'Acid green #CCFF00 appears ONLY as a few small four-point star sparkles - never as a large shape. Exception: the lightning bolt on The Tower and the serpent on The Lovers or The Devil, which are that card own motif.',
   'Figures are faceless, elongated, art-deco silhouettes in solid pink — never a detailed face, never outlined.',
-  'Composition: one focal symbol centered; a crescent moon near the top; small four-point star sparkles; soft pink cloud banks may frame the top and bottom edges; fine vertical rain or grain lines allowed as texture.',
+  /*
+    ⚠️ 这一条以前是「one focal symbol centered; a crescent moon near the top」——
+       把构图也钉死了，于是 78 张成了同一张牌画 78 遍：
+       主体永远居中、弯月永远压在它正上方、粉云永远框住上下两角。
+       实测 w11 / c11 / s03 三张摆在一起，只有道具不同。
+
+       一致性应该来自**材质**（油墨、颗粒、套印偏移、无脸剪影），不是来自构图。
+       上面那些定死油墨和质感的条目一个字都没动 —— 它们才是让 78 张像一套牌的原因。
+       这一条改成允许而非强制，构图交给每张牌自己的场景描述。
+  */
+  'Composition follows the scene description, not a fixed template: the subject may sit off-centre, low in the frame, high, cropped, or fill it entirely. A crescent moon may appear where the scene calls for it and need not be centred or present at all. Small four-point star sparkles; soft pink cloud banks may frame edges; fine vertical rain or grain lines allowed as texture.',
   'Generous negative space. Mood: nocturnal, still, austere, quietly powerful — not cute, not whimsical.',
   'No text, no letters, no numbers, no border, no frame, no watermark.',
 ].join(' ');
@@ -113,15 +123,48 @@ const PIP_SCENES: Record<string, Record<number, string>> = {
   },
 };
 
-const COURT_SCENES: Record<string, string> = {
-  侍从: 'a young faceless figure standing in an open landscape, holding up {obj} and studying it with curiosity',
-  骑士: 'a faceless armored rider on horseback carrying {obj}, in mid-motion across the landscape',
-  皇后: 'a seated faceless queen on a throne holding {obj} in her lap, composed and receptive',
-  国王: 'a seated faceless king on a throne holding {obj} upright, authoritative and still',
-};
-
-const COURT_OBJ: Record<string, string> = {
-  权杖: 'a tall sprouting wand', 圣杯: 'a single chalice', 宝剑: 'a raised sword', 星币: 'a single pentacle',
+/**
+ * 宫廷牌：**16 个各自的场景**，不是 4 个模板换道具。
+ *
+ * ⚠️ 原来是这样的：
+ *      侍从: 'a young faceless figure standing in an open landscape, holding up {obj}...'
+ *      骑士: 'a faceless armored rider on horseback carrying {obj}...'
+ *    四个构图 × 换个道具 = 16 张宫廷牌。实测 w11（权杖侍从）和 c11（圣杯侍从）
+ *    出来是同一张图换了个法器：同样的居中站姿、同样的举手、同样的弯月压顶。
+ *
+ * 现在每一格自己有姿态、环境、以及**人和法器的关系** ——
+ * 那个关系才是宫廷牌真正的区别：
+ *   侍从 还在看它    骑士 带着它冲    皇后 捧着它    国王 压着它
+ * 再乘上花色的性格：权杖是热和动，圣杯是水和静，宝剑是风和冷，星币是土和沉。
+ *
+ * 注：c11–c14 和 w11–w14 已经按旧模板出过图了。要不要按新场景重出，
+ *     是拿「一致性」换「多样性」的选择，留给用户定 —— 这里先把方向写对。
+ */
+const COURT_SCENES: Record<string, Record<string, string>> = {
+  权杖: {
+    侍从: 'a young faceless figure on a cracked orange plain, driving the butt of a sprouting wand into the dry ground and leaning on it to peer up at the single green shoot at its tip',
+    骑士: 'a faceless armored rider on a rearing horse, sprouting wand held aloft like a torch, the horse plumes and the rider cloak thrown backward by speed, dust kicked into orange arcs',
+    皇后: 'a faceless queen seated frontally on a broad throne, one hand resting on a wand planted upright beside her and a sunflower in the other, a small black cat sitting between her feet',
+    国王: 'a faceless king seated in profile leaning forward off his throne, both hands on a wand planted hard into the ground, a salamander curled at the throne base, restless rather than still',
+  },
+  圣杯: {
+    侍从: 'a young faceless figure crouched at a shoreline, looking down into a chalice held in both hands as a small fish rises out of it, wet sand reflecting the sky',
+    骑士: 'a faceless armored rider on a slowly walking horse fording a shallow stream, a cup held level in both hands so as not to spill it, the calmest of the riders',
+    皇后: 'a faceless queen seated on a throne at the water edge, both hands closed around an ornate lidded cup and her head bent over it, water lapping across the base of the throne',
+    国王: 'a faceless king seated on a throne that floats upright on a rough sea, cup in one hand and sceptre in the other, a fish leaping and a small ship behind, perfectly still on turbulent water',
+  },
+  宝剑: {
+    侍从: 'a young faceless figure on a windswept ridge gripping a sword point-up in both hands, twisting to look back over one shoulder, hair and cloth streaming sideways in the gale',
+    骑士: 'a faceless armored rider at full gallop, sword thrust straight forward, mane and cloak blown flat, shredded storm clouds streaking past behind, the fastest and least careful of the riders',
+    皇后: 'a faceless queen seated in strict profile on a high throne above the cloud line, one sword upright in her right hand and her left hand open and extended, having already cut and now listening',
+    国王: 'a faceless king seated frontally on a stone throne with sharp squared edges, sword held upright and tilted slightly off vertical, judgment held rather than swung',
+  },
+  星币: {
+    侍从: 'a young faceless figure standing in a freshly ploughed field of orange furrows, holding a single large pentacle up at eye level in both hands and studying its face',
+    骑士: 'a faceless armored rider on a heavy motionless draught horse at the edge of a ploughed field, a pentacle resting flat on an open palm, hooves planted, the only rider not moving',
+    皇后: 'a faceless queen seated in a walled garden grown up to her shoulders, a pentacle cradled in her lap as though it were alive, a rabbit at her feet',
+    国王: 'a faceless king seated on a throne carved with vines and bull heads, one hand laid flat on a pentacle resting on his knee, heavy grape clusters and a distant castle behind',
+  },
 };
 
 const PIP_CN: Record<string, number> = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
@@ -131,7 +174,8 @@ export function sceneFor(name: string): string {
   if (MAJOR_SCENES[name]) return MAJOR_SCENES[name];
   const suit = name.slice(0, 2);
   const rest = name.slice(2);
-  if (COURT_SCENES[rest]) return COURT_SCENES[rest].replace('{obj}', COURT_OBJ[suit]);
+  const court = COURT_SCENES[suit]?.[rest];
+  if (court) return court;
   const pips = PIP_CN[rest];
   const scene = PIP_SCENES[suit]?.[pips];
   return scene ?? `${pips} ${SUIT_OBJECT[suit]} arranged symmetrically`;
