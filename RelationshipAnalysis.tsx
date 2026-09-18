@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft } from 'lucide-react';
 import { ChatMessage } from './types';
 import { isUnavailable, type Coverage, type MetricKey } from './coverage';
+import { splitAt, timeRange } from './segments';
 import {
   computeRelationshipMetrics,
   computeImbalance,
@@ -203,6 +204,25 @@ export default function RelationshipAnalysis({
   }, [metrics.sufficient]);
 
   const trend = metrics.otherLatencyTrendPct;
+  /*
+    时间线：把记录从某个点切成两段，各算各的。
+
+    「失衡度 80」是一个点，而关系是有阶段的 —— 同一份记录，
+    「整体 80」和「前半年 41、后两年半 78」说的是完全不同的两件事。
+
+    分工在 segments.ts 里写清楚了：**用户负责问哪里，代码负责答多少**。
+    用户填的标签只是个名字，一个字都不参与计算，也不发给模型。
+  */
+  const range = useMemo(() => timeRange(messages), [messages]);
+  const [splitTs, setSplitTs] = useState<number | null>(null);
+  const [splitLabel, setSplitLabel] = useState('');
+  const split = useMemo(
+    () => (splitTs && coverage?.hasTimestamps !== false
+      ? splitAt(messages, myUid, splitTs, coverage?.hasTimestamps ?? true)
+      : null),
+    [messages, myUid, splitTs, coverage],
+  );
+
   const noSpan = !!coverage?.unavailable.some(u => u.key === 'span');
 
   /**
@@ -424,8 +444,109 @@ export default function RelationshipAnalysis({
               )}
             </section>
 
+            {/* ---------------- 时间线 ---------------- */}
+            {range && (
+              <section className="mt-12">
+                <SectionHead title="分成两段看" />
+
+                <p className="mt-4 text-[13px] leading-[1.9] text-ink-mid">
+                  {/* 这里原来举了「80 / 41 / 78」，会和上方真实的分数串在一起读 */}
+                  关系是有阶段的。挑一个你记得的时间点，
+                  <span className="text-ink">前后各算一遍</span>
+                  ——一个总分说不出它是从哪一步开始变的。
+                </p>
+
+                {/*
+                  标签只是个名字。它不参与任何计算，也不发给模型 ——
+                  用户负责问哪里，代码负责答多少。这条界限不能糊。
+                */}
+                <div className="mt-6 space-y-4">
+                  <label className="block">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+                      切在哪一天
+                    </span>
+                    <input
+                      type="range"
+                      min={range.from}
+                      max={range.to}
+                      step={86400000}
+                      value={splitTs ?? Math.round((range.from + range.to) / 2)}
+                      onChange={e => setSplitTs(Number(e.target.value))}
+                      className="mt-2 w-full accent-[#9E2B1F]"
+                    />
+                    <span className="mt-1 block font-mono text-[13px] tabular-nums">
+                      {new Date(splitTs ?? (range.from + range.to) / 2).toLocaleDateString()}
+                    </span>
+                  </label>
+
+                  <label className="block">
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+                      这天发生了什么（可不填）
+                    </span>
+                    <input
+                      value={splitLabel}
+                      onChange={e => setSplitLabel(e.target.value)}
+                      placeholder="我们开始异地 / 那次吵架之后"
+                      className="mt-1 w-full border-x-0 border-t-0 border-b-[1.5px] border-ink/30 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-vermilion"
+                    />
+                  </label>
+                </div>
+
+                {split && (
+                  <div className="mt-8">
+                    {splitLabel.trim() && (
+                      <p className="mb-4 font-serif text-[17px] font-semibold">{splitLabel.trim()}</p>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-px border border-ink/15 bg-ink/15">
+                      {([split.before, split.after] as const).map(seg => (
+                        <div key={seg.side} className="bg-paper px-4 py-5">
+                          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
+                            {seg.side === 'before' ? '之前' : '之后'}
+                            <span className="ml-2 normal-case tracking-normal tabular-nums">
+                              {seg.count} 条
+                            </span>
+                          </p>
+                          {seg.imbalance ? (
+                            <>
+                              <p className="mt-2 font-serif text-[46px] font-semibold leading-none tabular-nums text-vermilion">
+                                {seg.imbalance.score}
+                              </p>
+                              <p className="mt-2 font-serif text-[14px] font-semibold">
+                                {IMBALANCE_LABEL[seg.imbalance.band]}
+                              </p>
+                            </>
+                          ) : (
+                            /* 一段太短就不给分数。硬给一个 73 会让人以为那是测出来的 */
+                            <>
+                              <p className="mt-2 font-mono text-[15px] tracking-[0.1em] text-vermilion">
+                                算不出
+                              </p>
+                              <p className="mt-2 text-[12px] leading-[1.8] text-ink-mid">{seg.reason}</p>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {split.delta !== null && (
+                      <p className="mt-5 border-l-2 border-vermilion pl-4 text-[13px] leading-[1.9] text-ink-mid">
+                        切在这里，失衡度
+                        <span className="mx-1 font-mono tabular-nums text-ink">
+                          {split.delta > 0 ? `+${split.delta}` : split.delta}
+                        </span>
+                        —— {split.delta > 0 ? '后面这段更失衡' : '后面这段反而平了一些'}。
+                        两段都是照同一套指标重算的，不经过模型。
+                      </p>
+                    )}
+                  </div>
+                )}
+                {/* 这一节和「深度解读」之间要留白，否则差值那句会被读成下一节的开头 */}
+              </section>
+            )}
+
             {/* ---------------- 03 解读 ---------------- */}
-            <section className="mt-10">
+            <section className="mt-12">
               <SectionHead title="深度解读" />
               <div className="pt-5">
                 {loading ? (

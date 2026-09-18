@@ -55,8 +55,12 @@ export interface RelationshipMetrics {
   otherLatencyTrendPct: number | null;
 }
 
-/** 把 ISO 字符串 / 毫秒数 / Firestore Timestamp 统一成毫秒 */
-function toMillis(ts: unknown): number | null {
+/**
+ * 把 ISO 字符串 / 毫秒数 / Firestore Timestamp 统一成毫秒。
+ * 导出是给 segments.ts 用的：切分时间线要按同一套规则读时间戳，
+ * 两边各写一份解析迟早会在某种格式上分歧。
+ */
+export function toMillis(ts: unknown): number | null {
   if (ts == null) return null;
   if (typeof ts === 'number') return Number.isFinite(ts) ? ts : null;
   if (typeof ts === 'string') {
