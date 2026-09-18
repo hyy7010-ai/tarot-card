@@ -6,6 +6,7 @@ import { computeRelationshipMetrics } from './metrics';
 import TarotCard from './TarotCard';
 import { ILLUSTRATED } from './illustrated';
 import { TAROT_CARDS } from './cards';
+import { loadReadings } from './storage';
 import type { ChatMessage } from './types';
 
 /**
@@ -43,6 +44,8 @@ interface EntryProps {
   saved: { otherName: string; savedAt: number } | null;
   onForget: () => void;
   onDemo: (dest: Destination) => void;
+  /** 打开解读历史 */
+  onHistory: () => void;
 }
 
 /*
@@ -161,7 +164,9 @@ function HowTo() {
   );
 }
 
-export default function Entry({ hasData, onOpen, onReset, onStart, onDemo, saved, onForget }: EntryProps) {
+export default function Entry({
+  hasData, onOpen, onReset, onStart, onDemo, saved, onForget, onHistory,
+}: EntryProps) {
   const [step, setStep] = useState<'home' | 'paste'>('home');
   const [dest, setDest] = useState<Destination>('analysis');
   const [raw, setRaw] = useState('');
@@ -188,6 +193,9 @@ export default function Entry({ hasData, onOpen, onReset, onStart, onDemo, saved
     ⚠️ 全程用 File.text() 在本地读，文件不发去任何地方。
        首屏那句「聊天原文不会离开这台设备」是靠这一点成立的，别改成上传。
   */
+  /** 存下来的解读条数。只在挂载时读一次 —— 首页不会在原地新增记录 */
+  const [pastCount] = useState(() => loadReadings().length);
+
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [fileNote, setFileNote] = useState<string | null>(null);
@@ -282,6 +290,23 @@ export default function Entry({ hasData, onOpen, onReset, onStart, onDemo, saved
                   <Trash2 size={11} /> 删掉
                 </button>
               </div>
+            )}
+
+            {/*
+              有历史才显示这条。空着的入口是噪音 ——
+              而且这个功能的意义本来就是「攒起来之后」才成立。
+            */}
+            {pastCount > 0 && (
+              <button
+                onClick={onHistory}
+                className="group flex w-full items-baseline gap-2.5 border-b border-ink/15 py-4 text-left"
+              >
+                <span className="font-serif text-[15px] font-semibold">你问过的</span>
+                <span className="dot-leader" />
+                <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint transition-colors group-hover:text-vermilion">
+                  {pastCount} 次
+                </span>
+              </button>
             )}
 
             <button

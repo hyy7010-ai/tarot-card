@@ -4,6 +4,7 @@ import { ArrowRight } from 'lucide-react';
 import Entry, { type Destination } from './Entry';
 import RelationshipAnalysis from './RelationshipAnalysis';
 import Tarot from './Tarot';
+import History from './History';
 import TarotCard from './TarotCard';
 import { ILLUSTRATED } from './illustrated';
 import { computeRelationshipMetrics, computeImbalance } from './metrics';
@@ -35,7 +36,7 @@ import type { ChatMessage } from './types';
  * 所以正文只动 transform：动画跑不起来时最多是位置差 8px，字还在。
  */
 
-type View = 'entry' | 'analysis' | 'tarot';
+type View = 'entry' | 'analysis' | 'tarot' | 'history';
 
 interface Session {
   messages: ChatMessage[];
@@ -154,7 +155,9 @@ export default function App() {
           没有记录时它自己会说「只有牌意，没有事实支撑」，那是它的正常状态之一，
           不该被路由拦在导入表单后面。恋爱分析才非有记录不可。
         */}
-        {view === 'tarot' ? (
+        {view === 'history' ? (
+          <History onBack={backToEntry} />
+        ) : view === 'tarot' ? (
           <Tarot
             messages={session?.messages}
             myUid={session?.myUid}
@@ -180,6 +183,7 @@ export default function App() {
               if (dest === 'tarot') setTarotFrom('entry');
               setView(dest);
             }}
+            onHistory={() => setView('history')}
             onDemo={(dest) => {
               setSession({
                 messages: DEMO_MESSAGES, myUid: MY_UID, otherName: OTHER_NAME,

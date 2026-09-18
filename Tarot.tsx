@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, RotateCw } from 'lucide-react';
 import TarotCard, { TarotCardBack, type CardSize } from './TarotCard';
 import { parseReading } from './parseReading';
+import { saveReading } from './storage';
 import { ChatMessage } from './types';
 import { TAROT_CARDS } from './cards';
 import { ILLUSTRATED } from './illustrated';
@@ -634,6 +635,27 @@ export default function Tarot({
     })
       // 边到边显示：不等整段写完
       .then(r => readStream(r, all => { if (!cancelled) setReading(all); }))
+      .then(all => {
+        /*
+          写完才存，不存流到一半的半句话。
+
+          存下来是这个产品最初那个挫败的解药：拿聊天记录去问 ChatGPT，
+          问题不是它答得不好，是新开一个会话就全忘了 —— 而这个应用之前
+          一模一样（reset() 里一句 setReading(null) 就没了）。
+          连当时的失衡度和证据一起存，因为三个月后再看，变化才是那条最硬的信息。
+        */
+        if (cancelled || !all?.trim()) return;
+        saveReading({
+          question,
+          spread: spread.name,
+          cards: drawn.map((c, i) => ({ ...c, position: spread.positions[i].label })),
+          text: all,
+          facts,
+          imbalance: metrics.sufficient
+            ? { score: imbalance.score, band: IMBALANCE_LABEL[imbalance.band] }
+            : null,
+        });
+      })
       .catch(e => { if (!cancelled) setReadingError(e.message); })
       .finally(() => { if (!cancelled) setLoadingReading(false); });
     return () => { cancelled = true; };
@@ -1305,6 +1327,16 @@ export default function Tarot({
                 两个信号互相打架。收成一条自己宽度的文字按钮，靠左跟着正文的轴线。
                 上面留一道细线：它不属于解读那一节，紧贴着会被读成解读的一部分。
               */}
+              {/*
+                默认就存，所以必须说 —— 聊天原文是用户主动选才留的，
+                解读是默认留的，两条策略不同就得让人知道差别在哪。
+              */}
+              {reading && !loadingReading && !readingError && (
+                <p className="border-t border-ink/15 pt-5 text-[12px] leading-[1.85] text-ink-mid">
+                  这次解读已经存在这台设备上了，在首页的「你问过的」里能翻回来，也能删掉。
+                </p>
+              )}
+
               <div className="border-t border-ink/15 pt-6" />
               <button
                 onClick={reset}
