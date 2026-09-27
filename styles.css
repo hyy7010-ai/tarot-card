@@ -133,3 +133,180 @@ body {
     transform: translate(-50%, -50%) rotate(0deg) translateY(0px);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   首屏（Entry 的 step==='home'）。
+   
+   改这一段之前先看量出来的数：改版前最大字号 36px、正文 9px，
+   display÷body = 4.0 —— 正好踩在「没有尺度对比」的线上（获奖站中位数 8×）。
+   内容宽 672px 挤在 1440 视口中间，两边各死掉 384px。
+   
+   所以这里动的是**尺度和结构**，一个色值都没动：纸墨朱红全走 theme.css 的 token，
+   屏幕上唯一的彩色物件仍然只有牌本身。
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 8.9× 的跨度靠这一条。CJK 断行不可控，所以标题必须短到能写死断点 */
+@utility rh-display {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(38px, 8.2vw, 116px);
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+}
+
+/* 答句。比标题小一大截是故意的：问句在喊，答句在说 */
+@utility rh-answer {
+  font-family: var(--font-serif);
+  font-size: clamp(17px, 2.2vw, 30px);
+  line-height: 1.5;
+  color: var(--color-vermilion);
+}
+
+@utility rh-section-title {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(24px, 3.4vw, 46px);
+  line-height: 1.2;
+}
+
+/*
+ * 牌堆的指针视差。
+ *
+ * ⚠️ 不用 hover 抬升 —— 每张卡都 translateY(-4px) 是「应用到所有东西所以什么都没说」
+ *    的那种动效。这里三张牌的 gain 不同（0.35 / 1 / 0.55），近的跟得多、远的跟得少，
+ *    动的是**纵深**，那是一副摊在桌上的牌本来就有的东西。
+ *
+ * ⚠️ 每帧只写容器上的两个自定义属性，不是三次 style.transform。
+ *    行内 transform 会盖掉样式表里的一切（包括 :hover），所以状态走 custom property，
+ *    让规则自己去读 —— 牌堆那次性能事故的同一条教训。
+ */
+@utility rh-deck {
+  --px: 0;
+  --py: 0;
+}
+@utility rh-deck-card {
+  display: block;
+  transform-origin: bottom center;
+  transform:
+    translate(calc(var(--px) * var(--gain) * 1px), calc(var(--py) * var(--gain) * 1px))
+    rotate(calc(var(--rot) * 1deg))
+    translateY(calc(var(--drop) * 1px));
+  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* 指针在动的时候不要过渡，否则跟手变成拖影；松开才回弹 */
+.rh-deck[data-live="1"] .rh-deck-card {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rh-deck-card {
+    transform: rotate(calc(var(--rot) * 1deg)) translateY(calc(var(--drop) * 1px));
+    transition: none;
+  }
+}
+
+/*
+ * 指标表的点引线自己画出来。
+ *
+ * 一次性、只给这一张表 —— 全页每块都 fade-up 会让人在第三屏就学会无视入场。
+ * 这里画的是「填表」这个动作本身：表格进入视口，六行从左往右被逐条填满。
+ */
+@utility rh-leader {
+  flex: 1 1 auto;
+  min-width: 1.5rem;
+  align-self: center;
+  height: 0;
+  border-bottom: 1.5px dotted var(--color-ink-faint);
+  transform-origin: left center;
+  transform: scaleX(var(--drawn, 1));
+  transition: transform 620ms cubic-bezier(0.33, 1, 0.68, 1);
+  transition-delay: calc(var(--row) * 70ms);
+}
+.rh-table[data-drawn="0"] .rh-leader {
+  --drawn: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rh-leader {
+    --drawn: 1;
+    transition: none;
+  }
+}
+
+/* 51 张的横向带。overflow 自己滚，页面横向绝不溢出 */
+@utility rh-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   两个世界。
+   
+   改到这一版之前量过：整页只有一种地色（#F2EEE4），五个版块的左边线
+   全是 200、宽度全是 1040，字号是 116 之后五个 46 一路平到底。
+   三个数说的是同一件事 —— 页面是五条同宽横带往下堆，没有任何东西越界。
+   
+   而 theme.css 顶上早就写着这产品有**两套**颜色，用途完全分开：
+   牌的四色油墨、界面的纸与墨。首屏却只用了其中一套。
+   所以这里不是加装饰，是把已经存在的另一半放上来：
+   纸的版块管「数数」，牌的版块管「牌」，交替出现，深紫整块出血。
+   
+   ⚠️ 深紫用的是 theme.css 的 --color-sunset-purple，不是我另调的一个紫。
+      色值仍然一个都没新增。
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* 牌的世界：满幅出血，地色换成牌背的深紫 */
+@utility rh-ink {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-sunset-purple);
+  color: var(--color-paper);
+}
+
+/*
+ * 深紫版块的大字。
+ * 76px 是故意插在 116 和 46 中间的 —— 原来的字号表是 [116,46,46,46,46,46]，
+ * 一次跳跃之后全平。多这一档，页面才有第二次尺度事件。
+ */
+@utility rh-ink-display {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: clamp(30px, 5.2vw, 76px);
+  line-height: 1.14;
+}
+
+/* 一墙的牌。它是这一段的地，不是插图 */
+@utility rh-wall {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 7px;
+  padding: 7px;
+}
+.rh-wall img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+/*
+ * 压在牌墙上的帘子。
+ * 用同色渐隐而不是加一层灰：加灰会把四色油墨一起压脏，
+ * 同色渐隐只是让牌退到后面，颜色还是那个颜色。
+ */
+@utility rh-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    var(--color-sunset-purple) 0%,
+    color-mix(in srgb, var(--color-sunset-purple) 93%, transparent) 46%,
+    color-mix(in srgb, var(--color-sunset-purple) 55%, transparent) 100%
+  );
+}

@@ -89,6 +89,47 @@ export interface Spread {
   positions: SpreadPos[];
 }
 
+/**
+ * 牌阵的**形状**，直接从 positions 的 col/row 画出来。
+ *
+ * 选牌阵那一屏原来是四个纯文字框 —— 而牌阵的本质就是形状：
+ * 三张横排、菱形、十字。用一行字描述一个形状，等于把这屏唯一的信息扔了。
+ * 量过：那一屏地色只有纸一种、真实插画 0 张、最大字号 23px。
+ *
+ * ⚠️ 坐标只有一份。图从 SPREADS 自己生成，不另写一套 —— 改了牌阵，
+ *    图自己跟着变，不可能对不上。
+ */
+function SpreadShape({ spread, on }: { spread: Spread; on: boolean }) {
+  const W = 9, H = 13, GAP = 3;
+  return (
+    <div
+      aria-hidden="true"
+      className="relative"
+      style={{
+        width: spread.cols * W + (spread.cols - 1) * GAP,
+        height: spread.rows * H + (spread.rows - 1) * GAP,
+      }}
+    >
+      {spread.positions.map((pos, i) => (
+        <span
+          key={i}
+          className={on ? 'bg-paper' : 'bg-ink/40'}
+          style={{
+            position: 'absolute',
+            left: (pos.col - 1) * (W + GAP),
+            top: (pos.row - 1) * (H + GAP),
+            width: W,
+            height: H,
+            borderRadius: 1.5,
+            /* 凯尔特十字的「阻碍」：横压在「现况」上，这是这个牌阵的签名 */
+            transform: pos.cross ? 'rotate(90deg)' : undefined,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export const SPREADS: Spread[] = [
   {
     key: 'one', name: '一张牌', note: '一个问题，一张牌',
@@ -680,26 +721,42 @@ export default function Tarot({
         768 − 内边距 96 − 牌堆 440 − 间距 40 = 192，凯尔特十字本该 424，被压掉一半。
         只有这一步放宽，提问和解读仍然是适合阅读的 3xl 单栏宽度。
       */}
-      <div className={`relative z-[1] mx-auto w-full flex-1 px-7 pt-8 pb-24 md:px-12 ${
-        step === 'draw' ? 'max-w-3xl lg:max-w-5xl' : 'max-w-3xl'
-      }`}>
-        {/* 报头和恋爱分析同一套：这是同一份印刷品的两页 */}
-        <header className="mb-8">
-          <div className="flex items-end justify-between gap-4 border-b-2 border-ink pb-2.5">
+      {/*
+        报头整块出血，地色换成牌背的深紫。
+
+        量过选牌阵那一屏：地色只有纸一种、真实插画 0 张、最大字号 23px ——
+        和首屏改之前是同一个病。报头是三步共用的，把它变成深紫，
+        提问 / 抽牌 / 解读三屏就都有了第二种地色，而且它们看起来才像一副牌的三个阶段。
+
+        ⚠️ 深紫地上的前景**只用纸色**，不用四色油墨里的任何一支。
+           theme.css 那条规矩的原话是「整块地 = 可以；任何前景元素 = 不行」。
+      */}
+      {/*
+        ⚠️ shrink-0 不能省。外层是 flex flex-col，下面的正文带 flex-1 会去抢空间，
+           而 rh-ink 自带 overflow:hidden —— flex 子项在有 overflow 时可以被压到
+           内容高度以下。第一版漏了它，报头被压成 height:0：底色算出来是对的
+           （rgb(46,8,84)），宽度也满幅，但整条带子看不见。
+      */}
+      <div className="rh-ink relative z-[1] shrink-0">
+        <div className={`mx-auto w-full px-7 pb-4 pt-7 md:px-12 ${
+          step === 'draw' ? 'max-w-3xl lg:max-w-5xl' : 'max-w-3xl'
+        }`}>
+        <header>
+          <div className="flex items-end justify-between gap-4 border-b-2 border-paper/70 pb-2.5">
             <div className="flex items-center gap-2">
               {/* 首屏独立运行时没有可返回的地方，就不画一个按不动的按钮 */}
               {!(step === 'ask' && !onBack) && (
                 <button
                   onClick={step === 'ask' ? onBack : reset}
                   aria-label={step === 'ask' ? '返回' : '重新开始'}
-                  className="-ml-1.5 rounded p-1 text-ink-faint transition-colors hover:text-ink"
+                  className="-ml-1.5 rounded p-1 text-paper/50 transition-colors hover:text-paper"
                 >
                   <ArrowLeft size={17} />
                 </button>
               )}
-              <h1 className="font-serif text-[21px] font-semibold tracking-[0.02em]">真心塔罗</h1>
+              <h1 className="font-serif text-[21px] font-semibold tracking-[0.02em] text-paper">真心塔罗</h1>
             </div>
-            <p className="text-right font-mono text-[9px] leading-[1.7] tracking-[0.13em] text-ink-mid">
+            <p className="text-right font-mono text-[9px] leading-[1.7] tracking-[0.13em] text-paper/65">
               REALHEART TAROT
               <br />
               {/*
@@ -716,8 +773,13 @@ export default function Tarot({
               const done = (['ask', 'draw', 'reading'] as Step[]).indexOf(step) >= i;
               return (
                 <React.Fragment key={st}>
-                  {i > 0 && <div className={`h-px w-6 ${done ? 'bg-vermilion/60' : 'bg-ink/20'}`} />}
-                  <span className={`font-mono text-[8.5px] uppercase tracking-[0.2em] ${done ? 'text-vermilion' : 'text-ink-faint'}`}>
+                  {i > 0 && <div className={`h-px w-6 ${done ? 'bg-paper/55' : 'bg-paper/20'}`} />}
+                  {/*
+                    原来走到的步骤用朱红。朱红 #9E2B1F 压在深紫 #2E0854 上两个都是深色，
+                    对比度不够，8.5px 的字直接糊掉。换成纸色的明暗两档：
+                    走过的 100%，没走到的 55%（约 5.0:1，8.5px 正文过 AA 的 4.5:1）。
+                  */}
+                  <span className={`font-mono text-[8.5px] uppercase tracking-[0.2em] ${done ? 'text-paper' : 'text-paper/55'}`}>
                     {['question', 'draw', 'reading'][i]}
                   </span>
                 </React.Fragment>
@@ -725,7 +787,12 @@ export default function Tarot({
             })}
           </div>
         </header>
+        </div>
+      </div>
 
+      <div className={`relative z-[1] mx-auto w-full flex-1 px-7 pb-24 pt-10 md:px-12 ${
+        step === 'draw' ? 'max-w-3xl lg:max-w-5xl' : 'max-w-3xl'
+      }`}>
         <div className="relative flex-1">
           {/* ---------------- 1 提问 ---------------- */}
           {step === 'ask' && (
@@ -752,6 +819,10 @@ export default function Tarot({
                           : 'bg-paper hover:bg-paper-raised'
                       }`}
                     >
+                      {/* 固定 58px 的图框：不固定的话十字那张比一张牌高 4 倍，四个按钮参差 */}
+                      <span className="mb-2.5 flex h-[58px] items-center">
+                        <SpreadShape spread={sp} on={sp.key === spreadKey} />
+                      </span>
                       <span className="block font-serif text-[15px] font-semibold">{sp.name}</span>
                       <span className={`mt-1 block text-[11px] leading-snug ${
                         sp.key === spreadKey ? 'text-paper/70' : 'text-ink-faint'
@@ -762,7 +833,11 @@ export default function Tarot({
               </div>
 
               <div>
-                <h2 className="border-b-[1.5px] border-ink/70 pb-2.5 font-serif text-[20px] font-semibold tracking-[0.01em] sm:text-[23px]">
+                {/*
+                  原来 20/23px，和这屏其他标题一样大 —— 字号表是 [23,21,15,13.5,13]，
+                  一路平到底，没有主角。这句是这一屏唯一要人回答的事，给它真正的尺度。
+                */}
+                <h2 className="border-b-[1.5px] border-ink/70 pb-3 font-serif text-[30px] font-semibold leading-[1.25] tracking-[0.01em] sm:text-[40px]">
                   你想弄清楚什么
                 </h2>
                 <p className="mt-4 text-[13.5px] leading-[1.9] text-ink-mid">
@@ -1036,7 +1111,22 @@ export default function Tarot({
                         key="fan"
                         exit={{ opacity: 0, y: 40, transition: { duration: 0.35 } }}
                         /* 右栏宽度必须装得下整个圆盘：直径 = (R + 牌高/2) × 2 = hypot(140+69, 46)×2 ≈ 428 */
-                        className="space-y-4 lg:w-[440px] lg:shrink-0 lg:space-y-3"
+                        /*
+                          地色换成牌背的深紫。
+                          量过这一屏：地色只有纸一种、真实插画 0 张、最大字号 23px ——
+                          整个产品里「牌」最该说话的一屏，长得和牌毫无关系。
+                          51 张牌背摊在深紫上才是一副牌摊在桌上的样子，摊在米色纸上不是。
+
+                          ⚠️ 深紫加在**外层**，不加在 ringWrapRef 上：
+                             那个 div 正被 ResizeObserver 量宽度来反算半径，
+                             给它加内边距会把盘一起缩小。
+                        */
+                        /*
+                          横向不留内边距：盘是内切圆，四角本来就是空的，
+                          左右再留 16px 只会把半径从 146 压到 130（缩 11%）。
+                          内边距只给下面那两行说明。
+                        */
+                        className="space-y-4 rounded-2xl bg-sunset-purple py-5 lg:w-[440px] lg:shrink-0 lg:space-y-3"
                       >
                         {/*
                           高度按「牌高 + 两端抬起的高度」给：
@@ -1140,13 +1230,13 @@ export default function Tarot({
                           })}
                         </div>
                         </div>
-                        <div className="space-y-1.5 text-center">
-                          <p className="text-[12.5px] text-ink-mid">
+                        <div className="space-y-1.5 px-4 text-center">
+                          <p className="text-[12.5px] text-paper/70">
                             滑过牌堆挑一张，它会落到
                             {/* 抽满那一刻 picked.length === need，越界一下就是白屏。退场动画期间这段仍可能被读到 */}
-                            <span className="font-serif font-semibold text-ink">{spread.positions[picked.length]?.label ?? ''}</span>
-                            <span className="mx-2 text-ink-faint">·</span>
-                            <span className="font-mono tabular-nums text-ink-faint">{picked.length} / {need}</span>
+                            <span className="font-serif font-semibold text-paper">{spread.positions[picked.length]?.label ?? ''}</span>
+                            <span className="mx-2 text-paper/40">·</span>
+                            <span className="font-mono tabular-nums text-paper/55">{picked.length} / {need}</span>
                           </p>
                           {/*
                             牌堆全在弧上，只是屏幕装不下。这件事不说，用户不会想到去拖。
@@ -1156,7 +1246,12 @@ export default function Tarot({
                             懂塔罗的人抽几轮就会发现这两个花色几乎不出现。
                             差多少就写多少，不拿一个词把缺口糊过去。
                           */}
-                          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-ink-faint">
+                          {/*
+                            60% 不是随手给的：纸色 45% 压在深紫 #2E0854 上算出来是
+                            3.72:1，而这行是 9px 正文，AA 要 4.5:1 —— 不过。
+                            60% 是 5.67:1。
+                          */}
+                          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-paper/60">
                             <span className="tabular-nums">牌堆 {fan.length} 张</span>
                             {fan.length < TAROT_CARDS.length && (
                               <span className="tabular-nums">
