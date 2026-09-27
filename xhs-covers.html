@@ -40,14 +40,16 @@
   }
 
   /* ---------- A · 数据（纸与墨） ---------- */
-  .a{background:#E8E0CE;padding:96px 88px;display:flex;flex-direction:column}
+  /* space-between：页眉 / 标题+答案 / 表格 三组自己分匀，
+     不再靠 margin-top:auto 把表格顶到底、中间留一块洞 */
+  .a{background:#E8E0CE;padding:96px 88px;display:flex;flex-direction:column;justify-content:space-between}
   .a .kicker{
     font:600 30px/1 var(--mono);letter-spacing:.24em;text-transform:uppercase;
     color:var(--vermilion);
   }
   .a .rule{height:3px;background:var(--ink);margin-top:26px}
   .a .headline{
-    font:600 132px/1.18 var(--serif);color:var(--ink);margin-top:72px;letter-spacing:.01em;
+    font:600 132px/1.18 var(--serif);color:var(--ink);letter-spacing:.01em;
   }
   .a .headline em{font-style:normal;color:var(--vermilion)}
   /* 答案：不抢标题，但要比脚注重。它是这张封面的逻辑枢纽 */
@@ -56,7 +58,7 @@
   .a .date{font:400 38px/1 var(--mono);letter-spacing:.1em;color:var(--ink-mid);margin-top:18px}
 
   /* 点引线：这套界面的签名排版，封面直接用它，不另造一个 before/after 卡片 */
-  .a .table{margin-top:auto;padding-bottom:8px}
+  .a .table{padding-bottom:8px}
   .a .row{display:flex;align-items:baseline;gap:22px;padding:30px 0}
   .a .row + .row{border-top:1px solid rgba(23,19,14,.14)}
   .a .lab{font:400 44px/1 var(--serif);color:var(--ink);flex:none}
@@ -108,12 +110,62 @@
   .b .meta{
     font:400 32px/1 var(--mono);letter-spacing:.14em;color:var(--pink);margin-top:34px;
   }
+
+  /* ---------- C/D/E · 插画帖的内页（和 B 同一个世界：深紫底） ----------
+
+     ⚠️ 文件顶上那条「正文 ≥60px」只管**封面**：封面要在 240px 宽的
+        信息流缩略图里活下来。内页是用户点进来之后全屏看的，1080 宽
+        对应手机上约 390pt，30px 在这里约等于正文 11pt，读得动。
+        不放宽这条，内页就只能放四行字。
+  */
+  .inner{background:var(--violet);color:var(--paper);padding:64px 56px;display:flex;flex-direction:column}
+  .inner .kicker{
+    font:600 28px/1 var(--mono);letter-spacing:.26em;text-transform:uppercase;color:var(--pink);
+  }
+
+  /* --- C · 九宫格 --- */
+  .c .grid{
+    margin-top:34px;display:grid;justify-content:center;align-content:center;flex:1;
+    grid-template-columns:repeat(3,302px);grid-template-rows:repeat(3,405px);gap:16px;
+  }
+  .c .grid img{width:100%;height:100%;object-fit:cover;display:block}
+
+  /* --- D · 四条规矩 --- */
+  .d{padding:96px 84px}
+  .d .rule-line{height:3px;background:var(--pink);margin-top:24px;opacity:.5}
+  /* flex:1 + space-between：四条自己把整页分匀，
+     以后改文案长度也不会重新空出一块底 */
+  .d ol{list-style:none;margin-top:56px;display:flex;flex-direction:column;flex:1;justify-content:space-between}
+  .d li{display:grid;grid-template-columns:96px 1fr;align-items:baseline}
+  .d .n{font:600 40px/1 var(--mono);color:var(--orange);letter-spacing:.04em}
+  .d h2{font:600 58px/1.25 var(--serif);color:var(--paper)}
+  .d p{margin-top:16px;font:400 34px/1.7 var(--serif);color:var(--paper);opacity:.72}
+  /*
+    整张只有这一处荧光绿，就钉在「荧光绿只做点」这一条旁边。
+    这是牌面那条规矩本身在这张图上再演一次 —— 说的和做的是同一件事。
+  */
+  .d .dot{
+    display:inline-block;width:22px;height:22px;border-radius:50%;
+    background:var(--green);vertical-align:.04em;margin-left:16px;
+  }
+
+  /* --- E · 单张大图 ---
+     牌是 672×900（0.7467）。1080 宽对应 1446 高，和 1440 只差 6px，
+     所以满版铺进去几乎不裁 —— 这是这副牌能直接当首图用的原因。 */
+  .e{background:var(--violet);position:relative}
+  .e img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .e .cap{
+    position:absolute;inset:auto 0 0 0;padding:56px 56px 48px;
+    background:linear-gradient(to top,#2E0854 26%,rgba(46,8,84,0));
+  }
+  .e .cap b{display:block;font:600 46px/1.2 var(--serif);color:var(--paper)}
+  .e .cap span{display:block;margin-top:16px;font:400 28px/1.6 var(--mono);color:var(--pink)}
 </style>
 </head>
 <body>
 
 <!-- ================= A · 数据 / 时间线 ================= -->
-<section class="cover a grain">
+<section class="cover a grain" data-id="a">
   <div class="kicker">Realheart · 恋爱分析</div>
   <div class="rule"></div>
 
@@ -123,6 +175,7 @@
     现在 10 字、两行写死，而且它是一句读者心里已经在问的话 ——
     下面那两个数字负责回答它。
   -->
+  <div class="mid">
   <h1 class="headline">是从哪天<br><em>开始不对劲的</em></h1>
 
   <!--
@@ -134,6 +187,7 @@
   <div class="answer">
     <div class="day">他换了新工作那天</div>
     <div class="date">2026.07.20</div>
+  </div>
   </div>
 
   <div class="table">
@@ -148,7 +202,7 @@
 </section>
 
 <!-- ================= B · 插画 ================= -->
-<section class="cover b">
+<section class="cover b" data-id="b">
   <!-- 高塔：这副牌里唯一打破「居中 + 弯月压顶」公式的一张，也是唯一让荧光绿变成大块的 -->
   <img src="/tarot/m16.jpg" alt="">
   <div class="scrim"></div>
@@ -164,6 +218,71 @@
   </div>
 </section>
 
+
+<!-- ================= C · 九宫格（插画帖 图2） ================= -->
+<section class="cover inner c" data-id="c">
+  <div class="kicker">51 / 78 · 其中 9 张</div>
+  <div class="grid">
+      <img src="/tarot/m19.jpg" alt="">
+      <img src="/tarot/m18.jpg" alt="">
+      <img src="/tarot/m12.jpg" alt="">
+      <img src="/tarot/c07.jpg" alt="">
+      <img src="/tarot/m10.jpg" alt="">
+      <img src="/tarot/w08.jpg" alt="">
+      <img src="/tarot/m02.jpg" alt="">
+      <img src="/tarot/w04.jpg" alt="">
+      <img src="/tarot/m13.jpg" alt="">
+  </div>
+</section>
+
+<!-- ================= D · 四条规矩（插画帖 图3） =================
+     这张是给人「收藏」的：小红书里可保存的信息卡比作品图更容易被存，
+     而收藏是比点赞更重的分发信号。所以四条写成能单独看懂的短句。
+-->
+<section class="cover inner d" data-id="d">
+  <div class="kicker">画之前定的四条</div>
+  <div class="rule-line"></div>
+  <ol>
+    <li><span class="n">01</span><div>
+      <h2>只有四种油墨</h2>
+      <p>深紫、粉、橙、荧光绿。不调色，不渐变，一层压一层。颜色少了之后，构图就藏不住了。</p>
+    </div></li>
+    <li><span class="n">02</span><div>
+      <h2>人一律没有脸</h2>
+      <p>塔罗里的人是「位置」，不是「角色」。一给脸，它就变成别人的故事，你就进不去了。</p>
+    </div></li>
+    <li><span class="n">03</span><div>
+      <h2>荧光绿只做点，不做面<span class="dot"></span></h2>
+      <p>它在别的牌上都只是几粒星尘。全副只有高塔那一张，允许它塌成一大块。</p>
+    </div></li>
+    <li><span class="n">04</span><div>
+      <h2>51 张里，50 张挂着同一弯月</h2>
+      <p>它是这副牌的接缝。构图可以完全不一样，只要抬头是同一片天，它们就还是一副。唯一没有月亮的是太阳那张，那张的天顶已经被占了。</p>
+    </div></li>
+  </ol>
+</section>
+
+<!-- ================= E · 恋人（插画帖 图4） ================= -->
+<section class="cover e" data-id="e">
+  <img src="/tarot/m06.jpg" alt="">
+  <div class="cap">
+    <b>恋人</b>
+    <span>两个人都没有脸 · 太阳占了天顶，月亮退到左上角</span>
+  </div>
+</section>
+
+<!-- ================= F · 宝剑三（插画帖 图5） =================
+     全副最不需要解释的一张：一颗心，三把剑。
+     不懂塔罗的人零门槛就能看懂 —— 放在最后一张，是留给评论区的。
+-->
+<section class="cover e" data-id="f">
+  <img src="/tarot/s03.jpg" alt="">
+  <div class="cap">
+    <b>宝剑三</b>
+    <span>全副最不用解释的一张 · 一颗心，三把剑</span>
+  </div>
+</section>
+
 <script>
 /*
   ?only=a / ?only=b  单独渲染一张，去掉边距和另一张。
@@ -174,9 +293,7 @@ const only = new URLSearchParams(location.search).get('only');
 if (only) {
   document.body.style.cssText = 'margin:0;padding:0;background:#fff';
   document.querySelectorAll('.cover').forEach(c => {
-    const keep = (only === 'a' && c.classList.contains('a'))
-              || (only === 'b' && c.classList.contains('b'));
-    if (!keep) c.remove();
+    if (c.dataset.id !== only) c.remove();
   });
 }
 </script>

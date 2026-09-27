@@ -24,5 +24,11 @@ shot () {
 }
 
 echo "导出中（需要 dev server 在 :$PORT 上跑着）"
-shot a "xhs-a-数据.png"
-shot b "xhs-b-插画.png"
+# 插画帖（5 张，按发布顺序）
+shot b "post1-1-高塔.png"
+shot c "post1-2-九宫格.png"
+shot d "post1-3-四条规矩.png"
+shot e "post1-4-恋人.png"
+shot f "post1-5-宝剑三.png"
+# 产品帖：只有封面能预先做，图2-5 是应用截图，必须等有真实数据
+shot a "post2-1-封面.png"

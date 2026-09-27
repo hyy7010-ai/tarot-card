@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>真心塔罗 · 功能介绍与使用说明</title>
+<!--
+  A4 说明书，8 页，用 Chrome 无头 --print-to-pdf 导出。
+  用法：npm run dev，然后 ./export-guide.sh
+  它和 xhs-covers.html 一样不参与构建（Vite 只打包 index.html）。
+
+  ⚠️ 这份文档里每一个数字、每一条规矩都是从代码里查出来的，不是写文案时编的：
+     六项指标     → coverage.ts 的 unavailable[] + metrics.ts 的 drivers[]
+     四档失衡度   → metrics.ts BANDS + IMBALANCE_LABEL
+     样本门槛     → metrics.ts MIN_MESSAGES / MIN_SPAN_DAYS
+     导出步骤     → Entry.tsx HOWTO
+     文件限制     → Entry.tsx readFile()
+     四个牌阵     → Tarot.tsx SPREADS
+     存储上限     → storage.ts MAX_READINGS
+     改功能的时候，这份文件要跟着改。
+
+  版式沿用产品自己的两个世界：纸的页管「数数」，深紫的页管「牌」。
+  色值全部取自 theme.css，一个都没新增。
+-->
+<style>
+  @page { size: A4; margin: 0; }
+  :root{
+    --paper:#F2EEE4; --paper-raised:#FBF9F3;
+    --ink:#17130E; --ink-mid:#6E665A; --ink-faint:#A39A8B;
+    --vermilion:#9E2B1F;
+    --violet:#2E0854; --pink:#FFB6C1; --orange:#FF8C00; --green:#CCFF00;
+    --serif:"Noto Serif SC","Songti SC","STSong","SimSun",serif;
+    --mono:"SF Mono","SFMono-Regular","Menlo","Courier New",monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#666;font-family:var(--serif);color:var(--ink);
+       -webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+  .page{
+    width:210mm;height:297mm;position:relative;overflow:hidden;
+    background:var(--paper);page-break-after:always;
+    padding:20mm 18mm 16mm;display:flex;flex-direction:column;
+  }
+  .page:last-child{page-break-after:auto}
+  @media screen{ body{padding:10mm;display:flex;flex-direction:column;gap:8mm;align-items:center} }
+
+  /* 纸纹：和应用里同一套内联 SVG 噪声 */
+  .grain::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.16'/></svg>")}
+
+  /* ── 牌的世界：深紫页 ── */
+  .ink{background:var(--violet);color:var(--paper)}
+  .ink .kicker{color:var(--green)}
+  .ink .lede{color:rgba(242,238,228,.72)}
+  .ink .rule{background:rgba(242,238,228,.35)}
+
+  .kicker{font:600 8pt/1 var(--mono);letter-spacing:.24em;text-transform:uppercase;color:var(--vermilion)}
+  .rule{height:2px;background:var(--ink);margin-top:4mm}
+  h1{font-size:30pt;line-height:1.24;font-weight:600;letter-spacing:.01em}
+  h2{font-size:21.5pt;line-height:1.3;font-weight:600;margin-top:6mm}
+  h3{font-size:12.5pt;line-height:1.4;font-weight:600;margin-top:9.5mm}
+  p{font-size:10.5pt;line-height:2.05}
+  .lede{font-size:12pt;line-height:1.92;color:var(--ink-mid);margin-top:4mm;max-width:132mm}
+  .foot{margin-top:auto;padding-top:5mm;border-top:1px solid rgba(23,19,14,.15);
+        display:flex;justify-content:space-between;
+        font:400 7.5pt/1 var(--mono);letter-spacing:.1em;color:var(--ink-faint)}
+  .ink .foot{border-top-color:rgba(242,238,228,.22);color:rgba(242,238,228,.5)}
+
+  /* 点引线表：这套界面的签名排版 */
+  .row{display:flex;align-items:baseline;gap:4mm;padding:3.3mm 0}
+  .row+.row{border-top:1px solid rgba(23,19,14,.13)}
+  .ink .row+.row{border-top-color:rgba(242,238,228,.18)}
+  .row .n{font:600 7.5pt/1 var(--mono);color:var(--vermilion);flex:none;width:7mm}
+  .ink .row .n{color:var(--orange)}
+  .row .lab{font-size:10.5pt;flex:none}
+  .row .lead{flex:1 1 auto;min-width:6mm;border-bottom:1.5px dotted var(--ink-faint);transform:translateY(-.24em)}
+  .ink .row .lead{border-bottom-color:rgba(242,238,228,.4)}
+  .row .val{font:400 8pt/1 var(--mono);color:var(--ink-mid);flex:none;letter-spacing:.04em}
+  .ink .row .val{color:rgba(242,238,228,.62)}
+  .row .val.no{color:var(--vermilion)}
+  .ink .row .val.no{color:var(--pink)}
+
+  .note{border-left:3px solid var(--vermilion);padding-left:5mm;margin-top:6.5mm}
+  .ink .note{border-left-color:var(--green)}
+  .card-note{background:var(--paper-raised);border:1px solid rgba(23,19,14,.14);padding:6mm 7mm;margin-top:6.5mm}
+  .ink .card-note{background:rgba(242,238,228,.07);border-color:rgba(242,238,228,.2)}
+
+  .steps{counter-reset:s;margin-top:3mm}
+  .steps li{list-style:none;counter-increment:s;position:relative;padding-left:9mm;
+            font-size:10pt;line-height:1.9;margin-top:2.4mm}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:.15em;
+    font:600 7.5pt/1 var(--mono);color:var(--vermilion)}
+  .ink .steps li::before{color:var(--orange)}
+
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:9mm;margin-top:5mm}
+  .band{display:flex;align-items:baseline;gap:3mm;padding:2.8mm 0;font-size:10.5pt}
+  .band b{font:600 11pt/1 var(--mono);width:18mm;flex:none}
+
+  /* 封面 / 封底的牌墙 */
+  .wall{position:absolute;inset:0;display:grid;
+        grid-template-columns:repeat(7,1fr);grid-auto-rows:1fr;gap:2mm;padding:2mm}
+  .wall img{width:100%;height:100%;object-fit:cover;display:block;border-radius:1.5mm}
+  .scrim{position:absolute;inset:0;
+    background:linear-gradient(to top,#2E0854 26%,rgba(46,8,84,.93) 56%,rgba(46,8,84,.72) 100%)}
+  .cover-body{position:relative;margin-top:auto}
+</style>
+</head>
+<body>
+
+<!-- ════════ 1 · 封面 ════════ -->
+<section class="page ink">
+  <div class="wall" aria-hidden="true" id="wall"></div>
+  <div class="scrim"></div>
+  <div class="cover-body">
+    <p class="kicker">Realheart · 恋爱分析与塔罗</p>
+    <h1 style="margin-top:6mm">真心塔罗</h1>
+    <p class="lede" style="font-size:12pt;max-width:120mm">
+      聊天记录已经回答过了。<br>只是从来没有人把它数一遍。
+    </p>
+    <div class="rule" style="margin-top:10mm"></div>
+    <p style="font:400 8.5pt/1 var(--mono);letter-spacing:.14em;margin-top:4mm;color:rgba(242,238,228,.6)">
+      功能介绍与使用说明 · 2026.09
+    </p>
+  </div>
+</section>
+
+<!-- ════════ 2 · 这是什么 ════════ -->
+<section class="page grain">
+  <p class="kicker">01 · 这是什么</p>
+  <div class="rule"></div>
+  <h2>它先把聊天记录数一遍，<br>再抽牌。</h2>
+  <p class="lede">
+    牌拿到的只有那几个算好的数字，不是你的聊天原文。
+    所以它说的每一句都能往回追到一条你自己发过的消息。
+  </p>
+
+  <h3>和市面上的塔罗差在哪</h3>
+  <div style="margin-top:3mm">
+    <div class="row"><span class="n">01</span><span class="lab">别处：直接抽牌，凭感觉解</span><span class="lead"></span><span class="val">这里：先有六项数出来的证据</span></div>
+    <div class="row"><span class="n">02</span><span class="lab">别处：什么都能给你算一个分</span><span class="lead"></span><span class="val no">这里：算不出就写算不出</span></div>
+    <div class="row"><span class="n">03</span><span class="lab">别处：一次性，关掉就没了</span><span class="lead"></span><span class="val">这里：留在本地，能翻回去看变化</span></div>
+  </div>
+
+  <h3>两个入口，读同一批记录</h3>
+  <div class="two">
+    <div>
+      <p style="font-weight:600;font-size:11pt">恋爱分析</p>
+      <p style="margin-top:2mm;color:var(--ink-mid)">
+        把记录数成六项指标和一个失衡度，逐项列出来源。
+        <b>非有记录不可</b>：没有记录它连一个数字都算不出来。
+      </p>
+    </div>
+    <div>
+      <p style="font-weight:600;font-size:11pt">真心塔罗</p>
+      <p style="margin-top:2mm;color:var(--ink-mid)">
+        有记录就带着证据解，没有记录也能直接抽 ——
+        那时它只讲牌面，不碰关系事实。
+      </p>
+    </div>
+  </div>
+
+  <h3>它不做的三件事</h3>
+  <div style="margin-top:3mm">
+    <div class="row"><span class="n">01</span><span class="lab">不预测你们会不会分手</span><span class="lead"></span><span class="val">只说记录里有什么</span></div>
+    <div class="row"><span class="n">02</span><span class="lab">解读的主语是牌，不是你们</span><span class="lead"></span><span class="val">不往你们身上套</span></div>
+    <div class="row"><span class="n">03</span><span class="lab">语气温和，但不哄人</span><span class="lead"></span><span class="val no">语气可以软，结论不行</span></div>
+  </div>
+
+  <div class="note">
+    <p><b>一句话原则</b>：宁可少认，不要认错。<br>
+    这条规矩贯穿解析、打分、解读三处，后面几页讲的都是它的具体形态。</p>
+  </div>
+
+  <div class="foot"><span>真心塔罗 · 使用说明</span><span>02</span></div>
+</section>
+
+<!-- ════════ 3 · 六项指标 ════════ -->
+<section class="page grain">
+  <p class="kicker">02 · 它只数这六项</p>
+  <div class="rule"></div>
+  <h2>六项，全部从记录里数出来</h2>
+  <p class="lede">
+    没有第七项。右栏标的是这一项需要什么才算得出来。
+  </p>
+
+  <div style="margin-top:5mm">
+    <div class="row"><span class="n">01</span><span class="lab">谁在开启对话</span><span class="lead"></span><span class="val no">需要逐条时间</span></div>
+    <div class="row"><span class="n">02</span><span class="lab">回复速度中位数</span><span class="lead"></span><span class="val no">需要逐条时间</span></div>
+    <div class="row"><span class="n">03</span><span class="lab">平均每条字数</span><span class="lead"></span><span class="val">总能算</span></div>
+    <div class="row"><span class="n">04</span><span class="lab">提问次数</span><span class="lead"></span><span class="val">总能算</span></div>
+    <div class="row"><span class="n">05</span><span class="lab">让对方等待超过 24 小时</span><span class="lead"></span><span class="val no">需要逐条时间</span></div>
+    <div class="row"><span class="n">06</span><span class="lab">回复速度的变化趋势</span><span class="lead"></span><span class="val no">需要逐条时间</span></div>
+  </div>
+
+  <h3>失衡度：0 到 100，四档</h3>
+  <div style="margin-top:2mm">
+    <div class="band"><b>0–24</b><span>基本均衡</span></div>
+    <div class="band"><b>25–49</b><span>轻微失衡</span></div>
+    <div class="band"><b>50–74</b><span>明显失衡</span></div>
+    <div class="band"><b>75–100</b><span style="color:var(--vermilion);font-weight:600">严重失衡</span></div>
+  </div>
+  <p style="margin-top:3mm;color:var(--ink-mid)">
+    报告会告诉你这个分主要是哪一项拉上去的，以及是往你这边偏还是往 TA 那边偏。
+  </p>
+
+  <div class="card-note">
+    <p><b>样本不够就不给分数。</b>三条门槛，任一条不过就不打分，并且写出是哪条没过：</p>
+    <p style="margin-top:2mm;font-family:var(--mono);font-size:8.5pt;line-height:2">
+      至少 20 条消息　·　至少跨 3 天　·　不能只有单方发言
+    </p>
+  </div>
+
+  <div class="foot"><span>真心塔罗 · 使用说明</span><span>03</span></div>
+</section>
+
+<!-- ════════ 4 · 算不出 ════════ -->
+<section class="page grain">
+  <p class="kicker">03 · 它不会做的事</p>
+  <div class="rule"></div>
+  <h2>六项里有四项，<br>没有逐条时间就<span style="color:var(--vermilion)">算不出来</span>。</h2>
+  <p class="lede">
+    微信截图和手敲的记录没有逐条时间戳。
+    市面上的分析器照样会给你一个看着挺真的分数 —— 那个分数是拿缺失当 0 算出来的。
+  </p>
+
+  <h3>这里的做法</h3>
+  <ul class="steps">
+    <li>算不出的项<b>直接标成「算不出」</b>，并写明缺的是什么，而不是显示 0。</li>
+    <li>算不出的项在打分之前先从输入里抹掉，免得它悄悄参与了失衡度。</li>
+    <li>解析不出来的行原样报回来告诉你「这些没读懂」，不猜一个时间戳硬塞进去。</li>
+  </ul>
+
+  <div class="note">
+    <p>
+      <b>为什么这条最重要。</b><br>
+      「让你等超过 24 小时：0 次」和「让你等超过 24 小时：算不出」
+      是完全不同的两句话。第一句在撒谎，因为真相是"不知道"，不是"零次"。
+      一个你无法追溯来源的分数，比没有分数更坏。
+    </p>
+  </div>
+
+  <div class="card-note">
+    <p><b>报告里长这样</b></p>
+    <p style="margin-top:3mm;font-family:var(--mono);font-size:9pt;line-height:2.1">
+      让 TA 等超过 24 小时 …… <span style="color:var(--vermilion)">算不出</span>　这份记录没有逐条时间<br>
+      平均每条字数 …………… 我 39.5 ／ TA 12.0
+    </p>
+    <p style="margin-top:3mm;color:var(--ink-mid)">
+      读不懂的行也会原样列出来告诉你「这几行没读懂」，不猜、不丢。
+    </p>
+  </div>
+
+  <div class="card-note">
+    <p><b>解读也守同一条。</b>每一段解读后面都挂着它依据的那条证据编号。
+      没有证据支撑的话，它只讲牌面上画的是什么，不往你们身上套。</p>
+  </div>
+
+  <div class="foot"><span>真心塔罗 · 使用说明</span><span>04</span></div>
+</section>
+
+<!-- ════════ 5 · 怎么用 ① 导入 ════════ -->
+<section class="page grain">
+  <p class="kicker">04 · 怎么用 · 第一步</p>
+  <div class="rule"></div>
+  <h2>把聊天记录弄进来</h2>
+  <p class="lede">
+    这是整条路上唯一会卡住人的地方。所以这里也不吹：
+    微信在手机上就是导不出来。
+  </p>
+
+  <h3>WhatsApp　<span style="font:600 8pt var(--mono);color:var(--vermilion);letter-spacing:.14em">推荐</span></h3>
+  <ul class="steps">
+    <li>打开和对方的对话</li>
+    <li>点最上面的联系人名字，拉到底选「导出聊天」</li>
+    <li>选「不含媒体文件」，拿到一个 .txt</li>
+    <li>把这个 .txt 直接拖进框里，不用打开复制</li>
+  </ul>
+  <p style="margin-top:2mm;color:var(--ink-mid)">这条路有逐条时间，六项全都算得出来。</p>
+
+  <h3>微信</h3>
+  <ul class="steps">
+    <li>手机上没有导出功能 —— 这是微信的限制，不是这里做不到</li>
+    <li>电脑版微信可以框选一段对话直接复制，粘进来</li>
+    <li>或者照着截图敲：每行写「我：」或「TA：」加上内容</li>
+  </ul>
+  <p style="margin-top:2mm;color:var(--ink-mid)">
+    手敲的没有逐条时间，那四项会标成算不出来。
+  </p>
+
+  <div class="card-note">
+    <p><b>文件要求</b></p>
+    <p style="margin-top:2mm;font-family:var(--mono);font-size:8.5pt;line-height:2">
+      .txt / .log / .csv　·　5 MB 以内　·　拖进框里或点选
+    </p>
+    <p style="margin-top:2mm">
+      文件用浏览器在本地读，<b>不上传</b>。认得微信、QQ、WhatsApp 和手打四种格式。
+    </p>
+  </div>
+
+  <div class="foot"><span>真心塔罗 · 使用说明</span><span>05</span></div>
+</section>
+
+<!-- ════════ 6 · 怎么用 ② 抽牌（牌的世界） ════════ -->
+<section class="page ink">
+  <p class="kicker">05 · 怎么用 · 第二步</p>
+  <div class="rule"></div>
+  <h2 style="color:var(--paper)">抽牌</h2>
+  <p class="lede">
+    牌堆是一个可以转的圆盘。手指扫过去，底下那张会抬起来。
+    你自己挑，不是它替你发。
+  </p>
+
+  <h3 style="color:var(--paper)">四个牌阵</h3>
+  <div style="margin-top:3mm">
+    <div class="row"><span class="n">01</span><span class="lab">此刻</span><span class="lead"></span><span class="val">1 张</span></div>
+    <div class="row"><span class="n">02</span><span class="lab">起因 · 现状 · 走向</span><span class="lead"></span><span class="val">3 张　默认</span></div>
+    <div class="row"><span class="n">03</span><span class="lab">你 · TA · 你们之间 · 挡在中间的 · 走向</span><span class="lead"></span><span class="val">5 张</span></div>
+    <div class="row"><span class="n">04</span><span class="lab">凯尔特十字</span><span class="lead"></span><span class="val">10 张</span></div>
+  </div>
+
+  <h3 style="color:var(--paper)">牌本身</h3>
+  <div style="margin-top:3mm">
+    <div class="row"><span class="n">01</span><span class="lab">已画好的真实插画</span><span class="lead"></span><span class="val">51 / 78 张</span></div>
+    <div class="row"><span class="n">02</span><span class="lab">四色油墨 · 无脸剪影 · 丝网印</span><span class="lead"></span><span class="val">紫 粉 橙 荧光绿</span></div>
+    <div class="row"><span class="n">03</span><span class="lab">有正位也有逆位</span><span class="lead"></span><span class="val">约四成抽到逆位</span></div>
+  </div>
+
+  <div class="card-note">
+    <p style="color:var(--paper)">
+      <b>解读长什么样。</b>正文在左，它依据的证据在右，同屏对照。
+      每一段都先说牌面上画的是什么，再把它和那条证据接上。
+    </p>
+    <p style="margin-top:3mm;color:rgba(242,238,228,.72)">
+      没有导入记录时也能抽。那时它只给完整牌意，一个字都不碰关系事实 ——
+      因为它手上没有任何关于你们的证据。
+    </p>
+  </div>
+
+  <div class="foot"><span>真心塔罗 · 使用说明</span><span>06</span></div>
+</section>
+
+<!-- ════════ 7 · 时间线与历史 ════════ -->
+<section class="page grain">
+  <p class="kicker">06 · 怎么用 · 第三步</p>
+  <div class="rule"></div>
+  <h2>切一刀，看它是从哪天变的</h2>
+  <p class="lede">
+    一个总分说不出这件事。指一个日子，它把记录从那天切开，前后各算一遍。
+  </p>
+
+  <div class="note">
+    <p>
+      <b>用户负责问哪里，代码负责答多少。</b><br>
+      你写的那个标签（比如「他换工作那天」）只是个名字，
+      一个字都不参与计算，也不发给模型。
+    </p>
+  </div>
+
+  <h3>切完之后</h3>
+  <ul class="steps">
+    <li>两段各自给一个失衡度，以及两者的差值</li>
+    <li>某一段太短（不足 20 条或不跨 3 天）就<b>不给那一段分数</b>，并说明为什么</li>
+    <li>没有逐条时间戳的记录切不了 —— 这时时间线不会出现</li>
+  </ul>
+
+  <h3 style="margin-top:9mm">你问过的</h3>
+  <p style="margin-top:2mm">
+    每一次抽牌都会留下来：<b>时间、问题、牌阵、抽到的牌、解读全文、当时的失衡度和那几条证据</b>。
+    最多留 50 条，全部在这台设备上。
+  </p>
+  <div style="margin-top:4mm">
+    <div class="row"><span class="n">01</span><span class="lab">时间 · 问题 · 牌阵</span><span class="lead"></span><span class="val">按时间倒序</span></div>
+    <div class="row"><span class="n">02</span><span class="lab">抽到的牌（含正逆位）</span><span class="lead"></span><span class="val">缩略图排开</span></div>
+    <div class="row"><span class="n">03</span><span class="lab">解读全文</span><span class="lead"></span><span class="val">点开才展开</span></div>
+    <div class="row"><span class="n">04</span><span class="lab">当时的失衡度和那几条证据</span><span class="lead"></span><span class="val no">三个月后再看的锚</span></div>
+  </div>
+
+  <p style="margin-top:5mm;color:var(--ink-mid)">
+    攒起来之后，问题本身的变化就是一条信息 ——
+    一月问「TA 还在意我吗」、三月问「我该退回来吗」，
+    那条线比任何一次解读都硬。这一屏还会直接告诉你，和上一次带数字的记录比，失衡度动了多少。
+  </p>
+
+  <div class="foot"><span>真心塔罗 · 使用说明</span><span>07</span></div>
+</section>
+
+<!-- ════════ 8 · 隐私 / 封底 ════════ -->
+<section class="page ink">
+  <p class="kicker">07 · 隐私</p>
+  <div class="rule"></div>
+  <h2 style="color:var(--paper)">聊天原文<br>不会离开这台设备</h2>
+
+  <div style="margin-top:7mm">
+    <div class="row"><span class="n">01</span><span class="lab">文件在浏览器里就地读</span><span class="lead"></span><span class="val">不上传</span></div>
+    <div class="row"><span class="n">02</span><span class="lab">发给模型的只有算好的数字</span><span class="lead"></span><span class="val">不是原文</span></div>
+    <div class="row"><span class="n">03</span><span class="lab">记录和解读存在浏览器本地</span><span class="lead"></span><span class="val">localStorage</span></div>
+    <div class="row"><span class="n">04</span><span class="lab">首页永远有一个「删掉」的出口</span><span class="lead"></span><span class="val">随时清空</span></div>
+  </div>
+
+  <div class="card-note">
+    <p style="color:var(--paper)">
+      聊天记录默认<b>不</b>保存，要你自己选了才写进本地。
+      解读历史默认保存，因为那一屏的价值就是攒起来之后的那条线 —— 界面上会明说这件事，
+      并且给你逐条删和全部删两个出口。
+    </p>
+  </div>
+
+  <div style="margin-top:auto;position:relative">
+    <div class="rule" style="margin-bottom:5mm"></div>
+    <p style="font:400 9pt/1.8 var(--mono);letter-spacing:.1em;color:rgba(242,238,228,.75)">
+      realheart-25k8.onrender.com
+    </p>
+    <p style="margin-top:3mm;color:rgba(242,238,228,.5);font-size:8.5pt">
+      免费 · 网页打开就能用 · 不用注册
+    </p>
+  </div>
+</section>
+
+<script>
+/* 封面的牌墙：28 张够铺满 7×4，多了只是增加导出时间 */
+const CODES = ['m19','m18','m12','c07','m10','w08','m02','w04','m13','m16','m06','s03',
+               'm00','m01','m03','m11','c13','w13','m21','m17','c09','m08','w11','c03',
+               'm15','w06','c05','m20'];
+document.getElementById('wall').innerHTML =
+  CODES.map(c => `<img src="/tarot/${c}.jpg" alt="">`).join('');
+</script>
+</body>
+</html>
