@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
-import { Activity, ArrowRight, Check, Sparkles, Trash2 } from 'lucide-react';
+import { Activity, ArrowRight, BookOpen, Check, Sparkles, Trash2 } from 'lucide-react';
 import { parseChat, type ParseResult } from './parseChat';
 import { computeRelationshipMetrics } from './metrics';
 import TarotCard from './TarotCard';
@@ -25,7 +25,7 @@ import type { ChatMessage } from './types';
  * 立身之本就是那些数字是真的。
  */
 
-export type Destination = 'analysis' | 'tarot';
+export type Destination = 'analysis' | 'tarot' | 'book';
 
 interface EntryProps {
   /** 已经有聊天记录了：点图标直接进，不用再导入 */
@@ -66,7 +66,7 @@ const SAMPLE = `2026-08-01 09:12 我
 2026-08-01 09:24 TA
 哦是吗`;
 
-/** 首页的两个入口 */
+/** 首页的三个入口。第三个是好玩的，文案里要自己说出来 */
 const DOORS: {
   key: Destination; name: string; line: string;
   Icon: typeof Activity;
@@ -78,6 +78,10 @@ const DOORS: {
   {
     key: 'tarot', name: '真心塔罗', Icon: Sparkles,
     line: '可以直接抽。有分析结果时，牌会绑着那些数字说话。',
+  },
+  {
+    key: 'book', name: '答案之书', Icon: BookOpen,
+    line: '心里默念一个问题，按住书翻开一页。纯属好玩，不看记录，不碰数字。',
   },
 ];
 
@@ -402,7 +406,8 @@ export default function Entry({
     setDest(d);
     // 塔罗不需要聊天记录 —— 没有记录就只有牌意，这是它本来就支持的状态，
     // 而不是一个残缺状态。只有恋爱分析非有记录不可：没有记录它连一个数字都算不出来。
-    if (hasData || d === 'tarot') onOpen(d);
+    // 答案之书同理：它本来就不看记录
+    if (hasData || d !== 'analysis') onOpen(d);
     else setStep('paste');
   };
 
@@ -560,7 +565,7 @@ export default function Entry({
               </div>
             </section>
 
-            {/* ───────── 06 · 两个入口（目录式两条） ───────── */}
+            {/* ───────── 06 · 三个入口（目录式三条） ───────── */}
             <section className={`mx-auto w-full max-w-6xl px-7 md:px-14 mt-16 md:mt-32`}>
               <div className="border-t-2 border-ink">
                 {DOORS.map(({ key, name, line, Icon }, i) => (
@@ -580,7 +585,8 @@ export default function Entry({
                       </span>
                     </span>
                     <span className="mt-2 inline-flex shrink-0 items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-ink-faint transition-colors group-hover:text-vermilion">
-                      {key === 'tarot'
+                      {key === 'book' ? '翻一页'
+                        : key === 'tarot'
                         ? hasData ? '打开' : '直接抽牌'
                         : hasData ? '打开' : '导入记录'}
                       <ArrowRight size={13} className="transition-transform group-hover:translate-x-1" />

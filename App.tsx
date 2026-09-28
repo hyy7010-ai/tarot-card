@@ -5,6 +5,7 @@ import Entry, { type Destination } from './Entry';
 import RelationshipAnalysis from './RelationshipAnalysis';
 import Tarot from './Tarot';
 import History from './History';
+import AnswerBook from './AnswerBook';
 import TarotCard from './TarotCard';
 import { ILLUSTRATED } from './illustrated';
 import { computeRelationshipMetrics, computeImbalance } from './metrics';
@@ -36,7 +37,7 @@ import type { ChatMessage } from './types';
  * 所以正文只动 transform：动画跑不起来时最多是位置差 8px，字还在。
  */
 
-type View = 'entry' | 'analysis' | 'tarot' | 'history';
+type View = 'entry' | 'analysis' | 'tarot' | 'history' | 'book';
 
 interface Session {
   messages: ChatMessage[];
@@ -157,6 +158,8 @@ export default function App() {
         */}
         {view === 'history' ? (
           <History onBack={backToEntry} />
+        ) : view === 'book' ? (
+          <AnswerBook onBack={backToEntry} />
         ) : view === 'tarot' ? (
           <Tarot
             messages={session?.messages}
