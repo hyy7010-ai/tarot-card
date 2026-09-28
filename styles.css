@@ -507,3 +507,27 @@ body {
 }
 /* 第二段：她还在对面，但桌面要让给摊开的 78 张牌 */
 .reader-stage-compact { height: clamp(150px, 24vh, 250px); }
+
+/* ── 答案之书：一页纸绕书脊翻过去 ──
+   翻过去就消失（背面隐藏），露出底下那一页。
+   ⚠️ 动画不一定能播（后台标签、rAF 被节流）：AnswerBook 会在每页的时长到了之后
+      把它从 DOM 里拿掉，所以就算停在第一帧，最后露出来的也是答案那页，而不是一张白纸盖着。 */
+@keyframes book-leaf {
+  from { transform: rotateY(0deg); }
+  to { transform: rotateY(-180deg); }
+}
+@keyframes book-leaf-shade {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 0.45; }
+}
+@utility book-leaf {
+  transform-origin: left center;
+  backface-visibility: hidden;
+  animation: book-leaf var(--leaf-ms, 260ms) cubic-bezier(0.45, 0, 0.3, 1) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation-duration: 1ms;
+  }
+}
+@utility book-leaf-shade {
+  animation: book-leaf-shade var(--leaf-ms, 260ms) ease-in-out forwards;
+}
