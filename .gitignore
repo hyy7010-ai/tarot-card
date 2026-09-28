@@ -4,3 +4,9 @@ dist
 
 # 小红书首图的导出产物（用 ./export-covers.sh 生成）
 covers/
+
+# Vercel：api/ 是构建时从 vercel/handler.ts 打出来的
+api/
+vercel/.entry-*
+.vercel
+.env*
