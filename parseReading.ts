@@ -62,6 +62,9 @@ function factsOf(line: string): number[] {
   return [...seen];
 }
 
+/** 回答段的固定开头（reading.ts 的 prompt 要求最后一段这样起头） */
+export const ANSWER_LEAD = '你问的是';
+
 export function parseReading(
   text: string,
   positions: readonly string[],
@@ -104,6 +107,9 @@ export function parseReading(
     if (mode === 'body') {
       // 空行 = 这一块的正文到此为止（prompt 要求每块就一段）
       if (!line.trim()) { mode = 'between'; continue; }
+      // 回答段是 prompt 钉死的开头。模型漏了空行也不能让回答并进最后一张牌里 ——
+      // 那样用户问的那句话就没有地方被正面回答了
+      if (line.trim().startsWith(ANSWER_LEAD)) { mode = 'between'; between.push(line); continue; }
       cur.body = cur.body ? `${cur.body}\n${line}` : line;
       continue;
     }

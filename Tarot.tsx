@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, RotateCw } from 'lucide-react';
 import TarotCard, { TarotCardBack, type CardSize } from './TarotCard';
 import { Curtain, ReaderScene, TableWheel, CURTAIN_MS } from './TarotRoom';
-import { parseReading } from './parseReading';
+import { ANSWER_LEAD, parseReading } from './parseReading';
 import { saveReading } from './storage';
 import { ChatMessage } from './types';
 import { TAROT_CARDS } from './cards';
@@ -377,8 +377,8 @@ interface TarotProps {
  * 窄屏放不下两栏就退成上下，证据在下面用一道朱红竖线带住，关系不丢。
  */
 function ReadingBody({
-  text, positions, facts,
-}: { text: string; positions: readonly string[]; facts: string[] }) {
+  text, positions, facts, question,
+}: { text: string; positions: readonly string[]; facts: string[]; question: string }) {
   const parsed = useMemo(() => parseReading(text, positions), [text, positions]);
 
   // 认不出结构就原样显示。硬切错位比不切难看得多，也更容易骗到人（见 parseReading.ts）
@@ -430,6 +430,8 @@ function ReadingBody({
 
       {parsed.outro && (
         <p className="whitespace-pre-wrap border-t border-ink/15 pt-6 text-[14px] leading-[2]">
+          {/* prompt 要求回答段以「你问的是」起头，模型偶尔不照做：由这里补上，不靠它守规矩 */}
+          {!parsed.outro.startsWith(ANSWER_LEAD) && question.trim() && `${ANSWER_LEAD}「${question.trim()}」。`}
           {parsed.outro}
         </p>
       )}
@@ -1539,7 +1541,7 @@ export default function Tarot({
                       </button>
                     </div>
                   ) : reading ? (
-                    <ReadingBody text={reading} positions={positionLabels} facts={facts} />
+                    <ReadingBody text={reading} positions={positionLabels} facts={facts} question={question} />
                   ) : (
                     <p className="text-[12px] text-ink-faint">暂无解读。</p>
                   )}
