@@ -89,7 +89,7 @@ function SectionHead({ title }: { title: string }) {
 function Row({
   label, mine, theirs, mineRaw, theirsRaw, lowerIsMore = false, unavailable, bar = true,
 }: {
-  label: string; mine?: string; theirs?: string;
+  label: React.ReactNode; mine?: string; theirs?: string;
   mineRaw?: number; theirsRaw?: number;
   /** 数值越小代表投入越多（回复延迟就是这样） */
   lowerIsMore?: boolean;
@@ -224,6 +224,11 @@ export default function RelationshipAnalysis({
   );
 
   const noSpan = !!coverage?.unavailable.some(u => u.key === 'span');
+  /*
+    没有逐条时间的记录，时间戳是按序号补出来的 —— 拿它当日期，
+    滑杆上会出现「08/01/2000」这种从没发生过的一天。切不了就写切不了。
+  */
+  const canSplit = coverage?.hasTimestamps !== false;
 
   /**
    * 某一项算不出的原因，没有就是 null。
@@ -425,7 +430,8 @@ export default function RelationshipAnalysis({
                   在这里塞一句「后半段 vs 前半段」会被读成另一个人的数。
                 */}
                 <Row
-                  label={`${otherName}的回复速度（后半段 vs 前半段）`}
+                  // 对照基准单起一行小字：写在括号里一整行，390 宽下会把右边的数挤出页边
+                  label={<>{otherName}的回复速度<span className="mt-1 block text-[12px] text-ink-mid">后半段 vs 前半段</span></>}
                   bar={false}
                   unavailable={reasonFor('trend', trend) ?? undefined}
                   mine={trend === 0 ? '没变化' : `${(trend ?? 0) > 0 ? '慢了' : '快了'} ${Math.abs(trend ?? 0)}%`}
@@ -460,6 +466,7 @@ export default function RelationshipAnalysis({
                   标签只是个名字。它不参与任何计算，也不发给模型 ——
                   用户负责问哪里，代码负责答多少。这条界限不能糊。
                 */}
+                {canSplit ? (<>
                 <div className="mt-6 space-y-4">
                   <label className="block">
                     <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint">
@@ -539,6 +546,14 @@ export default function RelationshipAnalysis({
                         两段都是照同一套指标重算的，不经过模型。
                       </p>
                     )}
+                  </div>
+                )}
+                </>) : (
+                  <div className="mt-6 flex items-baseline gap-2.5 border-b border-ink/15 pb-4">
+                    <span className="shrink-0 font-mono text-[12px] tracking-[0.12em] text-vermilion">算不出</span>
+                    <span className="text-[13px] leading-[1.75] text-ink-mid">
+                      这份记录没有逐条时间，切不出前后两段。换一份带时间的导出记录就能用。
+                    </span>
                   </div>
                 )}
                 {/* 这一节和「深度解读」之间要留白，否则差值那句会被读成下一节的开头 */}

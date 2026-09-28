@@ -38,8 +38,15 @@ export const analysisSystemInstruction = `
 8. 中文，不用小标题，不用列表，四到六句话。
 `;
 
-/** 一次性和流式共用同一个型号和同一份 prompt，别让两份各自漂移 */
-const ANALYSIS_MODEL = 'gemini-3-flash-preview';
+/**
+ * 一次性和流式共用同一个型号和同一份 prompt，别让两份各自漂移。
+ *
+ * 原来是 gemini-3-flash-preview：免费额度很快用完，报告页的「深度解读」直接 429。
+ * 换成和塔罗解读同一个型号、同样关掉思考 —— 这一段是照着算好的数字写四到六句话，
+ * 用不上推理，关掉之后首字也快得多（实测见 reading.ts 的 TAROT_MODEL）。
+ */
+const ANALYSIS_MODEL = 'gemini-2.5-flash';
+const ANALYSIS_CONFIG = { temperature: 0.5, thinkingConfig: { thinkingBudget: 0 } } as const;
 
 function analysisPrompt(
   metrics: RelationshipMetrics,
@@ -80,7 +87,7 @@ export async function generateRelationshipAnalysis(
   const response = await getAI().models.generateContent({
     model: ANALYSIS_MODEL,
     contents: analysisPrompt(metrics, imbalance, otherName),
-    config: { systemInstruction: analysisSystemInstruction, temperature: 0.5 },
+    config: { systemInstruction: analysisSystemInstruction, ...ANALYSIS_CONFIG },
   });
   return response.text;
 }
@@ -97,7 +104,7 @@ export async function* streamRelationshipAnalysis(
   const stream = await getAI().models.generateContentStream({
     model: ANALYSIS_MODEL,
     contents: analysisPrompt(metrics, imbalance, otherName),
-    config: { systemInstruction: analysisSystemInstruction, temperature: 0.5 },
+    config: { systemInstruction: analysisSystemInstruction, ...ANALYSIS_CONFIG },
   });
   for await (const chunk of stream) {
     const t = chunk.text;
