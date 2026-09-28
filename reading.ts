@@ -89,8 +89,14 @@ export const tarotOnlySystemInstruction = `
    可以写「倒吊人讲的是停下来，等一个还没到的时机」；
    不可以写「你们现在停滞了」—— 后者是在断言一件你根本不知道的事。
    牌意可以写满，关系事实一个字都不许碰。
-2. **不回答问题本身**。用户问「TA还在意我吗」，你不回答在不在意。
-   问题决定你**从哪个角度读牌**，不决定你给什么结论。
+2. **要回答问题 —— 用牌回答**。用户问「TA还在意我吗」，结尾就要正面说：
+   「你问的是「TA还在意我吗」。这三张牌给的回答是：……」，而且要给出倾向（偏向在意、偏向收回、
+   或者牌面说的是「现在看不出来」—— 说不出来也要说清楚是哪一种说不出来）。
+   ⚠️ 主语仍然是牌：「牌给的回答是」「从牌面看」，不是「TA就是不在意」。
+      牌的回答可以说满，但不能说成是查证过的事实。
+   ⚠️ 这里以前写的是「不回答问题本身」。结果解读最后一句是
+      「这张牌阵没有直接回答TA是否还在意这个问题」—— 用户抽完三张牌换来一句不回答，
+      这比回答错还糟。不编事实和不回答问题是两件事，别再混在一起。
 3. **边界说一次就够**，别每段都道歉：没有事实支撑，这是牌意，不是对这段关系的判断。
 4. **不预测结局**。「走向」这个位置读的是这张牌讲的**模式**，不是预言会发生什么。
 5. **不做人身评判**，不给任何人安动机 —— 动机正是这里看不到的东西。
@@ -150,8 +156,21 @@ export interface Verdict {
   driver: string | null;
 }
 
-/** 一次性和流式共用同一个型号，别让两份各自漂移 */
-const TAROT_MODEL = 'gemini-3-flash-preview';
+/**
+ * 一次性和流式共用同一个型号和配置，别让两份各自漂移。
+ *
+ * ⚠️ 原来是 gemini-3-flash-preview。2026-09-27 实测同一道题（三张牌、带/不带证据）：
+ *      3-flash-preview 默认      第一个字 15.9 / 41.3 秒，另一次等 38 秒后 503「挤满了」
+ *      3-flash-preview 思考 LOW  18.4 / 32.6 / 16.0 秒 —— 和默认没区别，慢的不是思考，是排队
+ *      3-flash-preview 思考 MINIMAL  8.7 / 11.2 / 9.4 秒
+ *      2.5-flash 关掉思考        1.1 / 1.0 / 1.2 秒（带证据 1.3 / 1.2 秒），全部写完约 3 秒
+ *    五份输出都能被 parseReading 切成三段、证据编号都认得出、都没有 Markdown；
+ *    带证据时引用的数字全对，没有编造。两个模型在「主语是牌」上都偶尔越界一次，差别不大。
+ *    预览版的问题不是写得不好，是用户等不到它写。
+ */
+const TAROT_MODEL = 'gemini-2.5-flash';
+/** 解读不需要长考：规矩全写在系统指令里，模型照着写就行。开着思考只会让用户多等 */
+const TAROT_CONFIG = { temperature: 0.6, thinkingConfig: { thinkingBudget: 0 } } as const;
 
 /**
  * 有没有事实，决定走哪一套身份。
@@ -188,8 +207,14 @@ ${spread}
    每段开头单独一行写成「起因 · 倒吊人（正位）」，换行后接解读。
    每段 2 到 4 句，把这张牌**在这个牌阵位置上**的含义讲清楚，正位逆位要读出区别。
    位置名是什么就读什么 —— 「阻碍」要读成挡在前面的东西，「你」和「TA」是两个人，不能混着说。
-3. 最后一段讲这些牌连起来是什么形状，以及它和「${question}」这个问题是什么关系。
-   仍然不给任何关于这段关系的结论。
+3. 最后一段**必须以「你问的是「${question}」。」开头**，紧接着一句
+   「这几张牌给的回答是：……」，要有明确的倾向。问题原样加引号引出来，不要改写 ——
+   改写会把人称弄反（「你问TA还在意我吗」）。
+   然后再用一两句说这几张牌连起来是什么顺序，为什么是这个回答。
+   不许写「牌阵没有直接回答这个问题」这类话 —— 那等于没读。
+   ⚠️ 这一段最容易把牌意说成事实。说到 TA 的每一句都要带着牌当主语：
+      ✗ TA放下了过去，现在心思都在自己身上。
+      ✓ 死亡这张牌讲的是旧的已经翻篇；星币四讲的是把手里的东西抱紧、不往外给。
 4. 全程主语是牌，不是他们。不要写「你们」「你们的关系」怎么样。
 5. 纯文本，全程不许出现任何 Markdown 记号。
 `;
@@ -236,7 +261,7 @@ ${evidence}
    一张牌挂多条证据就写「· 证据 03，05」。
    ⚠️ **编号只写在开头那一行，正文里不要再写「（证据 01）」**——
       界面会把那几条证据原样摆在这段话旁边，正文里重复一遍只是噪音。
-   最后可以有一段总结。全程不许出现任何 Markdown 记号。
+   最后一段**第一句就正面回答「${question}」**：数字和牌能回答的那部分直接说出来，要有明确的倾向；数字回答不了的（比如 TA 心里到底怎么想），说清楚这一块它回答不了 —— 但不许拿这个当理由整段不回答。全程不许出现任何 Markdown 记号。
 6. **文风**：短句，说人话，有温度。说清楚形状就停，不追加判决，不给对方安动机。
    结尾那段允许**承认一次**这些数字看着不好受 —— 只承认，不劝，不给出路。
 `;
@@ -251,7 +276,7 @@ export async function generateTarotReading(
   const response = await getAI().models.generateContent({
     model: TAROT_MODEL,
     contents: tarotPrompt(question, cards, facts, verdict),
-    config: { systemInstruction: systemFor(facts), temperature: 0.6 },
+    config: { systemInstruction: systemFor(facts), ...TAROT_CONFIG },
   });
   return response.text;
 }
@@ -259,9 +284,10 @@ export async function generateTarotReading(
 /**
  * 流式版本。参数和上面那个完全一致，只是逐段吐字。
  *
- * 免费档实测：一次完整解读要 18 秒左右，挤的时候 40 秒还可能被 503 拒掉。
- * 流式不会让总耗时变短，但用户看到第一个字的时间从 18 秒降到一两秒 ——
- * 干等和边看边出是两种体验。
+ * 流式不会让总耗时变短，只是让写字的过程边写边出。
+ * ⚠️ 这里原来写着「看到第一个字的时间从 18 秒降到一两秒」—— 不对：
+ *    模型开口前的排队和思考，流式一秒都省不掉（3-flash-preview 实测第一个字仍要 16–41 秒）。
+ *    真正让第一个字降到一秒左右的是换模型、关思考，见 TAROT_MODEL 上面的实测。
  */
 export async function* streamTarotReading(
   question: string,
@@ -273,7 +299,7 @@ export async function* streamTarotReading(
   const stream = await getAI().models.generateContentStream({
     model: TAROT_MODEL,
     contents: prompt,
-    config: { systemInstruction: systemFor(facts), temperature: 0.6 },
+    config: { systemInstruction: systemFor(facts), ...TAROT_CONFIG },
   });
   for await (const chunk of stream) {
     const t = chunk.text;

@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ArrowLeft, RotateCw } from 'lucide-react';
 import TarotCard, { TarotCardBack, type CardSize } from './TarotCard';
+import { Curtain, ReaderScene, TableWheel, CURTAIN_MS } from './TarotRoom';
 import { parseReading } from './parseReading';
 import { saveReading } from './storage';
 import { ChatMessage } from './types';
@@ -113,7 +114,7 @@ function SpreadShape({ spread, on }: { spread: Spread; on: boolean }) {
       {spread.positions.map((pos, i) => (
         <span
           key={i}
-          className={on ? 'bg-paper' : 'bg-ink/40'}
+          className={on ? 'bg-ink' : 'bg-paper/45'}
           style={{
             position: 'absolute',
             left: (pos.col - 1) * (W + GAP),
@@ -214,34 +215,66 @@ const DRIVER_QUESTION: Record<string, string> = {
 const TREND_QUESTION = 'TA是不是在慢慢退出';
 
 /**
- * 牌堆的几何：**一个圆盘**，不是扇形。
+ * 牌堆的几何：她在你们之间摊开的一个 **U**。
  *
- * 为什么不是扇形 —— 这是一路踩过来才看清的：
- * 51 张摊在 70° 的弧上，每张只能露 9.9px；摊在 360° 的整圆上，每张露 51px。
- * 同样的半径，圆盘的周长是扇形弧长的 5 倍。
- * 之前一直在跟「每张只露 2.9px」较劲（先加牌缘、又改竖弧），
- * 而根本原因是那个形状只占整圆的 1/5。
+ * 支点在她那一侧（上方），78 张沿着支点下方的一段圆弧排开：
+ * 弧底朝你，两头开口朝她。每张牌的长边都指向支点。
  *
- * 丢掉的东西要如实记一笔：**摊成扇形是塔罗师的手势，圆盘不是**。
- * 换掉它的理由是扇形当时也没真的在表演那个手势 —— 露 9px 看着是一把梳子。
- *
- * 代码也因此简单了一大截：不再需要支点百分比、inset、两套轴，
- * 就是绕容器中心转一圈。r 是牌心到圆心的距离，按各档屏宽给死：
- *   外径 = r + 牌高/2，容器得装得下这个外径的两倍。
+ * ⚠️ 这里曾经是圆盘，换圆盘的理由记在这里，别忘了为什么现在又能用弧：
+ *    当年那把扇形只有 70°（整圆的 1/5），51 张挤在上面每张只露 2.9px，
+ *    又只能靠点 —— 点不准。现在两件事都变了：
+ *      1. 弧张到 168°，几乎是半圆。同样的宽度，弧长是当年的 2.4 倍；
+ *      2. 选牌是「指尖扫过、底下那张抬起来、松手选中」，不靠点准。
+ *    所以 78 张在手机上每张只露 4–5px 也选得准：你看得见抬起来的是哪一张。
+ *    用户知道「每张只剩几像素」这件事之后，仍然选了 78 张全摊 —— 这是她定的。
  */
-/** 圆盘半径的上下限。上限是别让牌稀疏到不像一叠，下限是再小就挤成一坨 */
-const RING_R = { min: 56, max: 150 } as const;
+const ARC_DEG = 168;
 
 /**
- * 由可用宽度反算牌心半径。
+ * 由可用宽度反算 U 的尺寸。
  *
- * 固定半径服务不了所有屏宽：375px 手机塞不下桌面那个盘，320px 手机连 94 都塞不下。
- * 外接角在 hypot(R + 牌高/2, 牌宽/2) 处，令它等于可用半宽，反解出 R。
+ * 手机和桌面用不同的牌尺寸（scale 缩 sm 那张牌，不另造一个尺寸 ——
+ * 圆角、牌缘、徽记跟着等比缩，看起来是同一张牌小了一号）。
+ * 半径让弧两端「抬起来的那张」最外的角刚好贴着容器边：
+ *   (R + lift + h/2)·sin a + (w/2)·cos a = 可用半宽 − 边距
  */
-function ringRadius(available: number) {
-  const half = available / 2;
-  const inner = Math.sqrt(Math.max(0, half * half - (FAN_CARD.w / 2) ** 2)) - FAN_CARD.h / 2;
-  return Math.max(RING_R.min, Math.min(RING_R.max, inner));
+function arcGeometry(available: number, vh: number) {
+  const narrow = available < 640;
+  const s = narrow ? 0.63 : 0.84;
+  const w = FAN_CARD.w * s;
+  const h = FAN_CARD.h * s;
+  const lift = narrow ? 22 : 30;
+  const a = ((ARC_DEG / 2) * Math.PI) / 180;
+  const fitW = ((available / 2 - 6) - (w / 2) * Math.cos(a)) / Math.sin(a) - h / 2 - lift;
+  /*
+    高度也要限制。第一版只按宽度算，桌面上 R 顶到 240：在 1000×525 的窗口里
+    一把牌加星盘占满整屏，问题只露出一行，牌位全在屏幕外 —— 挑的牌落到哪看不见。
+    现在让整个牌堆盒子装进「报头 + 她 + 桌沿」之后剩下的高度：
+      她（compact）= clamp(150, 24vh, 250)，报头约 110，桌沿压住她约 clamp(40, 7vh, 78)，
+      桌面上沿留 12 + 穗子 11 + 底下余量 16；
+      盒子高 = 1.55R + 半张牌 + 抬起 + 8（见下面 boxH）。
+  */
+  const figure = Math.min(250, Math.max(150, vh * 0.24));
+  const overlap = Math.min(78, Math.max(40, vh * 0.07));
+  const budget = vh - 110 - figure + overlap - 39;
+  const fitH = (budget - h / 2 - lift - 8) / 1.55;
+  /*
+    上限 200：再大星盘就比对面的她还抢眼（第一版 240 时盘直径约 420，她只有 90 高）。
+    下限 90：再小 78 张挤成一坨。
+  */
+  const R = Math.max(90, Math.min(200, fitW, fitH));
+  /*
+    支点压在 0.55R：U 的两头离桌沿不远，像是从她手边摊出来的；
+    支点上方那段空间正好露出桌布上星盘的上半圈。
+  */
+  const pivotY = Math.round(R * 0.55);
+  return {
+    s, w, h, lift, R, pivotY,
+    /** 盒子高度：支点 + 半径 + 半张牌 + 抬起的量 */
+    boxH: Math.ceil(pivotY + R + h / 2 + lift + 8),
+    /** 星盘外圈刚好套住牌尾 */
+    wheelR: R + h / 2 + 12,
+  };
 }
 
 /**
@@ -252,13 +285,16 @@ const FAN_CARD = { w: 92, h: 138 } as const;
 
 
 /**
- * 牌堆只放有插画的牌。
+ * 牌堆：完整的 78 张。
  *
- * 55 张小阿卡纳还没出图，走矢量线稿。线稿再怎么对齐母样式也不是同一套牌，
- * 三张里混进一张就会显得整副牌不齐。宁可只用 23 张真图 ——
- * 大阿卡纳牌阵本身就是正经的塔罗实践。出完图把 code 加进 illustrated.ts 即可。
+ * ⚠️ 以前这里只放有插画的牌，理由是「线稿和插画不是同一套牌，三张里混进一张就不齐」。
+ *    现在改成 78 张全摊，是用户明确要的：摊在桌上的必须是一副完整的牌。
+ *    当时的代价是：还没出图的 27 张（宝剑 13、星币 14）抽到时翻开是矢量线稿。
+ *    2026-09-27 这 27 张已经补齐，LINE_ART 变成 0，抽牌屏底下那行说明也就自己没了。
  */
-const DECK = TAROT_CARDS.filter(c => ILLUSTRATED.includes(cardCode(c.name)));
+const DECK = TAROT_CARDS;
+/** 还没出图、抽到会翻出线稿的张数。插画补齐之后它是 0，那行说明自己就消失 */
+const LINE_ART = TAROT_CARDS.filter(c => !ILLUSTRATED.includes(cardCode(c.name))).length;
 
 /** 洗牌后抽 n 张不重复的牌，各自随机正逆位 */
 function drawCards(n: number) {
@@ -406,6 +442,25 @@ export default function Tarot({
   metrics: metricsProp, imbalance: imbalanceProp, onBack,
 }: TarotProps) {
   const [step, setStep] = useState<Step>('ask');
+  /**
+   * 进门的帘子。closed → opening（正在拉开，已经不挡点击）→ gone（卸掉）。
+   * 只在进塔罗的那一次出现；「再抽一次」不会再拉一遍帘子 —— 人已经在屋里了。
+   */
+  const [curtain, setCurtain] = useState<'closed' | 'opening' | 'gone'>('closed');
+  const openCurtain = () => {
+    if (curtain !== 'closed') return;
+    setCurtain('opening');
+    // 定时卸掉，不等 transitionend（见 CURTAIN_MS 的注释）
+    window.setTimeout(() => setCurtain('gone'), CURTAIN_MS + 80);
+  };
+  /*
+    帘子合着的时候，后面的输入框、按钮不许被 Tab 到 —— 看不见的东西不该能被聚焦。
+    React 18 的类型里没有 inert，所以用 ref 直接设属性。
+  */
+  const stageRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    stageRef.current?.toggleAttribute('inert', curtain === 'closed');
+  }, [curtain]);
   const [question, setQuestion] = useState('');
   /** 选中的牌阵。默认三张 —— 它是这个产品原本绑定的形状，也是报头写着的那个 */
   const [spreadKey, setSpreadKey] = useState('three');
@@ -458,25 +513,36 @@ export default function Tarot({
   /*
     媒体查询的 wide / side 两个 state 删掉了：
     半径改成由实测宽度反算之后，JS 侧不再需要知道「现在是哪一档屏幕」——
-    两栏布局是纯 CSS（lg:flex），圆盘大小跟着容器走。少两个订阅、少两次重渲染。
+    U 的大小跟着容器实测宽度走（arcGeometry）。少两个订阅、少两次重渲染。
   */
   /*
-    圆盘按**实测可用宽度**定半径，不写死。
-    ResizeObserver 盯着外层那个满宽的壳子（不是盘本身 —— 盘的尺寸由 R 决定，
+    U 的半径按**实测可用宽度**反算，不写死。
+    ResizeObserver 盯着外层那个满宽的壳子（不是牌堆本身 —— 牌堆的尺寸由 R 决定，
     盯它自己会绕成循环）。
   */
-  const ringWrapRef = useRef<HTMLDivElement>(null);
+  const fanWrapRef = useRef<HTMLDivElement>(null);
   const [wrapW, setWrapW] = useState(0);
   useEffect(() => {
-    const el = ringWrapRef.current;
+    const el = fanWrapRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([e]) => setWrapW(e.contentRect.width));
     ro.observe(el);
     setWrapW(el.getBoundingClientRect().width);
     return () => ro.disconnect();
   }, [step, shuffling]);
-  /** 牌心到圆心的距离 */
-  const R = ringRadius(wrapW || 320);
+  /** 视口尺寸：U 的半径、右栏牌位的大小都受它限制 */
+  const [vp, setVp] = useState(() =>
+    typeof window === 'undefined' ? { w: 1024, h: 800 } : { w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    const onResize = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const vh = vp.h;
+  /** 和 JSX 里的 min-[900px]: 同一个门槛：宽屏时桌面分两栏 */
+  const sideBySide = vp.w >= 900;
+  /** U 的全部尺寸：半径、支点、牌的缩放、盒子高度、星盘半径 */
+  const g = arcGeometry(wrapW || 360, vh);
 
   /*
     牌阵和它的张数。以前这两样写死成 POSITIONS 和字面量 3，
@@ -488,13 +554,36 @@ export default function Tarot({
     [spreadKey],
   );
   const need = spread.positions.length;
+  /**
+   * 牌位每一列多宽。
+   *
+   * 竖排（手机）时就是牌阵自己定的 colWidth。
+   * 两栏时右栏要把整组牌位装进一屏，否则挑的牌落到哪还是看不见 ——
+   * 第一版在 1000×525 的窗口里，关系牌阵每张牌位约 110×165，三行只露出第一行。
+   * 按右栏剩下的高度反算：一行 ≈ 牌高（1.5 × 列宽）+ 标签 20 + 间距 8 + 行距 20 = 48px。
+   * 两栏时牌位底下不放说明：说明在 33px 宽的牌位下面会被挤成五行，每行都被它撑高，
+   * 所以改成右栏顶上只写下一张的说明。（按 36 估的时候，关系牌阵在 800 高的屏幕里
+   * 底边落在 799，只差 1px。）
+   * 下限 44：再小翻开也看不出是什么牌。矮窗口（525 高）里三行、四行的牌阵到了下限
+   * 仍会溢出，只能往下滚一点；三张牌阵 525 高也装得下，800 高时只有凯尔特十字要滚一点。
+   */
+  const slotColW = useMemo(() => {
+    if (!sideBySide) return spread.colWidth;
+    const figure = Math.min(250, Math.max(150, vh * 0.24));
+    const overlap = Math.min(78, Math.max(40, vh * 0.07));
+    // 报头 110 + 她 − 桌沿压住的 + 穗子 11 + 上边距 12 + 右栏顶上的说明约 124
+    // （问题、落到哪、下一张的说明、线稿那一行，四行；按三行估的时候差了 1px 掉出屏幕）
+    const top = 110 + figure - overlap + 11 + 12 + 124;
+    const perRow = (vh - top - 24) / spread.rows;
+    return Math.max(44, Math.min(spread.colWidth, (perRow - 48) / 1.5));
+  }, [sideBySide, vh, spread]);
   /** 解析解读用的位置名。身份要稳定，否则 ReadingBody 里的 useMemo 每次都白做 */
   const positionLabels = useMemo(() => spread.positions.map(p => p.label), [spread]);
 
   /**
    * 滑动选牌。
    *
-   * 手机上每张牌只露 2.9px（51 张铺在 374px 的弧上，几何上限，材质救不了）。
+   * 手机上每张牌只露 4–5px（78 张铺在一段约 350px 的弧上，几何上限，材质救不了）。
    * 靠点是选不准的，所以改成**指尖扫过**：手指划到哪张，哪张就升到最上面并抬起来，
    * 整张牌背露出来，松手就是选它。
    *
@@ -506,7 +595,7 @@ export default function Tarot({
    */
   const fanBoxRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
-  /** 51 张牌的 DOM。滑动时直接改它们的 style，不经过 React */
+  /** 78 张牌的 DOM。滑动时直接改它们的 style，不经过 React */
   const cardRefs = useRef<(HTMLButtonElement | null)[]>([]);
   /*
     手指底下是第几张 —— **故意不是 state**。
@@ -524,10 +613,25 @@ export default function Tarot({
 
   /** 拨开的窗口：窗口外的牌 part 恒为 0，一个字节都不用碰 */
   const PART_WINDOW = 3;
-  const LIFT = 30;
 
+  /** 相邻两张之间的角度 */
+  const stepDeg = ARC_DEG / Math.max(1, fan.length - 1);
+  /**
+   * 第 i 张的角度。0° 是正下方（弧底，离你最近）；正值往左。
+   * 第 0 张在最左、最后一张在最右 —— 和 indexAt 反解的方向必须一致。
+   */
   const angleOf = (i: number) =>
-    fan.length > 1 ? (360 * i) / fan.length : 0;
+    fan.length > 1 ? ARC_DEG / 2 - stepDeg * i : 0;
+  /**
+   * 牌的层级：从两头往中间递增，弧底正中那张压在最上面。
+   *
+   * ⚠️ 第一版是 zIndex = i（后一张压前一张）。结果左端露出一排整齐的牌边，
+   *    右端最后一张却整张躺在最上面，像是从牌堆里滑出来了。
+   *    两头都露牌边，U 才是对称的；右半边的牌再左右镜像（见牌背外面那层），
+   *    亮边才会落在露出来的那一侧。
+   */
+  const mid = (fan.length - 1) / 2;
+  const baseZ = (i: number) => (i <= mid ? i : fan.length - 1 - i);
 
   /**
    * 第 i 张牌在「focus 是第 f 张」时该摆成什么样。
@@ -539,21 +643,24 @@ export default function Tarot({
     /*
       手指底下那张之外，左右邻居往两边让一点，做出「拨开」的手感。
 
-      ⚠️ 幅度必须拿「每张牌占多少度」来量。51 张铺 40°，一张只占 0.8°。
-         第一版给了 4°，等于把最近的邻居推开 5 张的距离，扇形被撕出一个口子。
-         1.2° 约等于一张半，才是「让开」。
+      ⚠️ 幅度必须拿「每张牌占多少度」来量（stepDeg，78 张铺 168° 约 2.2°）。
+         扇形那一版给过一次 4°，等于把邻居推开好几张的距离，牌堆被撕出一个口子。
+         0.9 张的距离才是「让开」。
+      角度随序号递减，所以序号更大的那一侧要往更小的角度推：前面是负号。
     */
     const part = f === null || on
       ? 0
-      : Math.sign(i - f) * 1.2 * Math.max(0, 1 - Math.abs(i - f) / PART_WINDOW);
+      : -Math.sign(i - f) * stepDeg * 0.9 * Math.max(0, 1 - Math.abs(i - f) / PART_WINDOW);
     /*
-      径向排布：先把牌摆到容器正中，绕自身中心转到该去的方向，再沿着**转过之后的
-      「上」**推出 R —— 于是牌自然朝外，抬起也只是把 R 加大一点，方向自动是往外的。
+      径向排布：先把牌摆到支点上，绕自身中心转到该去的方向，再沿着**转过之后的
+      「下」**推出 R —— 于是牌的长边自然指向支点，抬起也只是把 R 加大一点，
+      方向自动是朝你这边的（像从一把牌里抽出来）。
 
       顺序不能换：translateY 必须在 rotate 之后，才是「在牌自己的坐标系里往外」。
-      写在 rotate 前面就变成屏幕坐标系的正上方，下半圈的牌会往圆心里缩。
+      scale 放在最后：牌的布局盒子仍是 sm 那一档（92×138），缩放围绕中心，
+      translate(-50%,-50%) 的居中不受影响。
     */
-    return `translate(-50%, -50%) rotate(${(angleOf(i) + part).toFixed(3)}deg) translateY(${-(R + (on ? LIFT : 0))}px)`;
+    return `translate(-50%, -50%) rotate(${(angleOf(i) + part).toFixed(3)}deg) translateY(${g.R + (on ? g.lift : 0)}px) scale(${g.s})`;
   };
 
   /**
@@ -580,7 +687,7 @@ export default function Tarot({
         「露出整张牌」只能靠 z-index —— 靠把邻居转开需要约 24° 才让得出一张牌的宽度，
         那等于把整个扇形拆了。
       */
-      el.style.zIndex = String(j === next ? fan.length + 1 : j);
+      el.style.zIndex = String(j === next ? fan.length + 1 : baseZ(j));
     }
   };
 
@@ -589,24 +696,24 @@ export default function Tarot({
     if (!box || fan.length < 2) return null;
     const r = box.getBoundingClientRect();
     /*
-      圆心就是容器正中，所以「手指相对圆心的方向」直接就是牌的角度，反解出序号。
-      这个算法不读任何牌的位置，所以牌被推出来也不会反馈回来把命中目标带跑。
+      支点在盒子的水平正中、往下 pivotY 处。「手指相对支点的方向」直接就是牌的角度，
+      反解出序号。这个算法不读任何牌的位置，所以牌抬起来也不会反馈回来把命中目标带跑。
 
-      0° 是正上方，顺时针为正 —— 和 cardTransform 里 rotate 的方向必须一致。
+      牌 i 落在 支点 + R·(−sin θ, cos θ)，所以 θ = atan2(−dx, dy)：
+      0° 是正下方，往左为正 —— 和 angleOf / rotate 的方向一致。
     */
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    const dist = Math.hypot(clientX - cx, clientY - cy);
-    // 圆心附近方向是没意义的（半径越小角度抖得越厉害），太靠里就不认
-    if (dist < R * 0.35) return null;
-    let deg = Math.atan2(clientX - cx, cy - clientY) * (180 / Math.PI);
-    if (deg < 0) deg += 360;                         // 归一到 [0,360)
-    const step = 360 / fan.length;
-    const raw = Math.round(deg / step) % fan.length;
-    // 已经抽走的牌在圈上留了空档，就近找一张还在的。环形要绕回去，不是夹在两端
+    const dx = clientX - (r.left + r.width / 2);
+    const dy = clientY - (r.top + g.pivotY);
+    // 支点附近方向是没意义的（半径越小角度抖得越厉害），太靠里就不认
+    if (Math.hypot(dx, dy) < g.R * 0.45) return null;
+    const deg = Math.atan2(-dx, dy) * (180 / Math.PI);
+    // 弧外（包括支点上方、她那一侧）不认
+    if (Math.abs(deg) > ARC_DEG / 2 + stepDeg) return null;
+    const raw = Math.min(fan.length - 1, Math.max(0, Math.round((ARC_DEG / 2 - deg) / stepDeg)));
+    // 已经抽走的牌在弧上留了空档，就近找一张还在的。弧是两头断开的，不绕回去
     for (let d = 0; d < fan.length; d++) {
-      for (const j of [(raw - d + fan.length) % fan.length, (raw + d) % fan.length]) {
-        if (!picked.includes(j)) return j;
+      for (const j of [raw - d, raw + d]) {
+        if (j >= 0 && j < fan.length && !picked.includes(j)) return j;
       }
     }
     return null;
@@ -639,11 +746,65 @@ export default function Tarot({
   };
 
   /** 从牌堆里挑一张，落到下一个空位。已挑过的、或已经抽满这个牌阵的，都不再响应 */
+  /**
+   * 选中那一刻，这张牌在 U 上的位置、角度和大小。落位时从这里飞过去。
+   *
+   * ⚠️ 原来是「U 上那张直接消失，牌位上另冒出一张、从上方 120px 弹下来」——
+   *    两张牌之间没有任何连接，看起来是一张没了、另一张凭空出现。
+   *    现在记下它离开 U 时的样子，落位的那张从这个样子动画到牌位（FLIP），
+   *    眼睛里是同一张牌从一把牌里被抽出来、放到桌上。
+   */
+  const flyFrom = useRef<({ cx: number; cy: number; w: number; angle: number } | undefined)[]>([]);
+  /** 每个牌位最外层那个 div（凯尔特十字的「阻碍」在这一层上横过来） */
+  const slotRefs = useRef<(HTMLDivElement | null)[]>([]);
+
   const pick = (i: number) => {
+    const el = cardRefs.current[i];
+    if (el && !picked.includes(i) && picked.length < need) {
+      // 包围盒的中心就是牌心（旋转不改变中心）；宽度用没转过的那个：sm 那档乘缩放
+      const r = el.getBoundingClientRect();
+      flyFrom.current[picked.length] = {
+        cx: r.left + r.width / 2, cy: r.top + r.height / 2,
+        w: FAN_CARD.w * g.s, angle: angleOf(i),
+      };
+    }
     // 先把邻居归位：被抽走那张的左右还停在「让开」的角度上，不复位就留下一道歪缝
     applyFocus(null);
     setPicked(prev => (prev.includes(i) || prev.length >= need ? prev : [...prev, i]));
   };
+
+  /*
+    落位动画。useLayoutEffect：牌位里那张牌刚挂上、还没画到屏幕上时就把它摆回 U 上的样子，
+    不然会先在牌位上闪一帧再飞走。
+
+    用 Web Animations 而不是 motion：只动 transform，交给合成器跑；
+    也不经过 React，飞的过程中一次重渲染都没有。
+  */
+  useLayoutEffect(() => {
+    const k = picked.length - 1;
+    const from = flyFrom.current[k];
+    const el = slotRefs.current[k];
+    if (k < 0 || !from || !el) return;
+    flyFrom.current[k] = undefined;
+    const r = el.getBoundingClientRect();
+    // 十字的「阻碍」最终是横着压在上面的，飞的终点要是那个样子，不是正着
+    const end = spread.positions[k]?.cross ? 'rotate(90deg) scale(0.78)' : 'none';
+    const dx = from.cx - (r.left + r.width / 2);
+    const dy = from.cy - (r.top + r.height / 2);
+    // offsetWidth 是没被 transform 影响的布局宽度
+    const sc = from.w / Math.max(1, el.offsetWidth);
+    // 飞的时候要压在牌堆上面（牌堆的牌有 z-index），落地后还原
+    el.style.position = 'relative';
+    el.style.zIndex = '200';
+    const anim = el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) rotate(${from.angle}deg) scale(${sc})` },
+        { transform: end },
+      ],
+      { duration: 620, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
+    );
+    anim.onfinish = anim.oncancel = () => { el.style.zIndex = ''; el.style.position = ''; };
+  }, [picked.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 必须用函数式更新：连点两张牌时，第二次点击拿到的 revealed 还是旧值，
   // 直接 [...revealed, i] 会丢掉前一张，流程就永远凑不满三张。
@@ -715,12 +876,15 @@ export default function Tarot({
   };
 
   return (
-    <div className="paper-grain relative flex flex-1 flex-col overflow-y-auto scrollbar-hide bg-paper">
-      {/*
-        抽牌这一步在宽屏是两栏（牌阵 + 圆盘牌堆），3xl 装不下：
-        768 − 内边距 96 − 牌堆 440 − 间距 40 = 192，凯尔特十字本该 424，被压掉一半。
-        只有这一步放宽，提问和解读仍然是适合阅读的 3xl 单栏宽度。
-      */}
+    <div className={`paper-grain relative flex flex-1 flex-col scrollbar-hide bg-paper ${
+      // 帘子是 absolute 盖在可视区上的。不锁滚动的话往下一滑，帘子就被滚走了
+      curtain === 'gone' ? 'overflow-y-auto' : 'overflow-hidden'
+    }`}>
+      {curtain !== 'gone' && (
+        <Curtain opening={curtain === 'opening'} onOpen={openCurtain} onBack={onBack} />
+      )}
+      {/* display:contents —— 只是给 inert 一个挂的地方，不参与布局 */}
+      <div ref={stageRef} className="contents">
       {/*
         报头整块出血，地色换成牌背的深紫。
 
@@ -738,9 +902,7 @@ export default function Tarot({
            （rgb(46,8,84)），宽度也满幅，但整条带子看不见。
       */}
       <div className="rh-ink relative z-[1] shrink-0">
-        <div className={`mx-auto w-full px-7 pb-4 pt-7 md:px-12 ${
-          step === 'draw' ? 'max-w-3xl lg:max-w-5xl' : 'max-w-3xl'
-        }`}>
+        <div className="mx-auto w-full max-w-3xl px-7 pb-4 pt-7 md:px-12">
         <header>
           <div className="flex items-end justify-between gap-4 border-b-2 border-paper/70 pb-2.5">
             <div className="flex items-center gap-2">
@@ -790,164 +952,201 @@ export default function Tarot({
         </div>
       </div>
 
-      <div className={`relative z-[1] mx-auto w-full flex-1 px-7 pb-24 pt-10 md:px-12 ${
-        step === 'draw' ? 'max-w-3xl lg:max-w-5xl' : 'max-w-3xl'
-      }`}>
-        <div className="relative flex-1">
-          {/* ---------------- 1 提问 ---------------- */}
-          {step === 'ask' && (
-            <motion.div
-              key="ask"
-              initial={{ y: 12 }} animate={{ y: 0 }}
-              className="space-y-8"
-            >
+      {/* ---------------- 1 提问：在房间里，她坐在对面 ---------------- */}
+      {step === 'ask' ? (
+        <ReaderScene>
+          <div className="mx-auto w-full max-w-2xl px-7 pb-24 pt-12 md:px-12">
+            {/* 她开口 */}
+            <div className="text-center">
+              <p className="font-mono text-[9px] uppercase tracking-[0.3em] text-paper/55">
+                The High Priestess · II
+              </p>
               {/*
-                选牌阵。放在提问之前：先定形状，再定问题 ——
-                一张牌和十张牌该问的问题不是一回事。
-                用和预设问题同一套细线网格，不新引入一种控件形状。
+                原来是 20/23px 的「你想弄清楚什么」，和这屏其他标题一样大。
+                现在它是她问你的一句话，这一屏唯一要人回答的事，给它真正的尺度。
               */}
-              <div>
-                <p className="pb-2 text-[12.5px] text-ink-mid">用哪个牌阵</p>
-                <div className="grid grid-cols-2 gap-px border border-ink/15 bg-ink/15">
-                  {SPREADS.map(sp => (
+              <h2 className="mt-4 font-serif text-[30px] font-semibold leading-[1.25] tracking-[0.01em] text-paper sm:text-[40px]">
+                你想问什么？
+              </h2>
+              {/* 她说的是两句话，断在两句之间。交给浏览器断，手机上会把「发生」劈成「发 / 生的事」 */}
+              <p className="mx-auto mt-4 max-w-md text-[13.5px] leading-[1.9] text-paper/65">
+                牌只负责把话说出来。
+                <br />
+                真正的答案来自你们之间已经发生的事。
+              </p>
+            </div>
+
+            {/*
+              你回答她。只留一道书写线，不用带边框的方盒 ——
+              16px 也是 iOS 上聚焦不触发自动放大的下限。
+              聚焦色原来是朱红，朱红压在深色桌布上看不见，换成纸色。
+            */}
+            <textarea
+              value={question}
+              onChange={e => setQuestion(e.target.value)}
+              rows={2}
+              placeholder="把问题写清楚一点，越具体越准"
+              className="mt-10 w-full resize-none border-x-0 border-t-0 border-b-[1.5px] border-paper/30 bg-transparent px-0 py-2 text-[16px] leading-[1.9] text-paper outline-none transition-colors placeholder:text-paper/40 focus:border-paper"
+            />
+
+            <div className="mt-6 space-y-2">
+              <p className="text-[11px] text-paper/55">或者从这些开始</p>
+              {/* presets 恒为 4 条（PRESET_QUESTIONS / slice(0,4)），2×2 等宽对齐 */}
+              <div className="grid grid-cols-2 gap-2">
+                {presets.map(q => (
+                  <button
+                    key={q}
+                    onClick={() => setQuestion(q)}
+                    className={`border px-3 py-3.5 text-center text-xs leading-snug transition-colors ${
+                      question === q
+                        ? 'border-paper bg-paper text-ink'
+                        : 'border-paper/20 text-paper/75 hover:border-paper/50 hover:text-paper'
+                    }`}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/*
+              她的第二句：要看几张。
+
+              原来牌阵排在问题**前面**，注释写的是「先定形状，再定问题」。
+              现在反过来了，因为这一屏变成了一场对话：真实的看牌也是先听你想问什么，
+              再决定摊几张 —— 问题决定牌阵，不是牌阵决定你能问什么。
+            */}
+            <div className="mt-14">
+              <h3 className="text-center font-serif text-[20px] font-semibold text-paper sm:text-[24px]">
+                要看几张？
+              </h3>
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                {SPREADS.map(sp => {
+                  const on = sp.key === spreadKey;
+                  return (
                     <button
                       key={sp.key}
                       onClick={() => setSpreadKey(sp.key)}
-                      className={`px-3 py-3 text-left transition-colors ${
-                        sp.key === spreadKey
-                          ? 'bg-ink text-paper'
-                          : 'bg-paper hover:bg-paper-raised'
+                      className={`border px-3 py-3 text-left transition-colors ${
+                        on ? 'border-paper bg-paper text-ink' : 'border-paper/20 text-paper hover:border-paper/50'
                       }`}
                     >
                       {/* 固定 58px 的图框：不固定的话十字那张比一张牌高 4 倍，四个按钮参差 */}
                       <span className="mb-2.5 flex h-[58px] items-center">
-                        <SpreadShape spread={sp} on={sp.key === spreadKey} />
+                        <SpreadShape spread={sp} on={on} />
                       </span>
                       <span className="block font-serif text-[15px] font-semibold">{sp.name}</span>
-                      <span className={`mt-1 block text-[11px] leading-snug ${
-                        sp.key === spreadKey ? 'text-paper/70' : 'text-ink-faint'
-                      }`}>{sp.note}</span>
+                      <span className={`mt-1 block text-[11px] leading-snug ${on ? 'text-ink-mid' : 'text-paper/55'}`}>
+                        {sp.note}
+                      </span>
                     </button>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
+            </div>
 
-              <div>
-                {/*
-                  原来 20/23px，和这屏其他标题一样大 —— 字号表是 [23,21,15,13.5,13]，
-                  一路平到底，没有主角。这句是这一屏唯一要人回答的事，给它真正的尺度。
-                */}
-                <h2 className="border-b-[1.5px] border-ink/70 pb-3 font-serif text-[30px] font-semibold leading-[1.25] tracking-[0.01em] sm:text-[40px]">
-                  你想弄清楚什么
-                </h2>
-                <p className="mt-4 text-[13.5px] leading-[1.9] text-ink-mid">
-                  牌只负责把话说出来。真正的答案来自你们之间已经发生的事。
+            {/*
+              你带来的纸条。
+
+              首屏那套「纸管数数、牌管牌」在这里变成一个具体的画面：
+              纸是你带来的，牌是她的，两样东西摆在同一张桌上。
+              内容和原来一字不改 —— 一条记录都没接的人和记录太短的人仍然分开说，
+              对前者写「消息仅 0 条，不足 20 条」是在报一个他没犯的错。
+            */}
+            <div className="mt-12 rotate-[-0.5deg] bg-paper px-5 py-4 text-ink shadow-[0_12px_30px_rgba(9,2,20,0.5)]">
+              <div className={`border-l-2 pl-3.5 ${metrics.sufficient ? 'border-ink' : 'border-vermilion/40'}`}>
+                <p className="font-mono text-[11px] tracking-[0.06em]">
+                  {metrics.sufficient
+                    ? `已读取 ${metrics.totalMessages} 条记录，跨 ${metrics.spanDays} 天`
+                    : metrics.totalMessages === 0 ? '这次只有牌意' : '证据不足'}
+                </p>
+                <p className="mt-1.5 text-[13px] leading-[1.9] text-ink-mid">
+                  {verdict
+                    ? `恋爱分析的结论是「${verdict.band}·${verdict.lean}」${verdict.driver ? `，主要来自「${verdict.driver}」` : ''}。牌只会换个说法说这件事。`
+                    : metrics.totalMessages === 0
+                    ? '还没有接入聊天记录，牌就只有牌意，说不出你们之间的任何事实。想让它绑着你的数字说话，先做一份恋爱分析。'
+                    : `${metrics.insufficientReason}。仍然可以抽牌，但只有牌意，没有事实支撑。`}
                 </p>
               </div>
+            </div>
 
-              <div className="relative">
-                {/*
-                  不再是一个带边框的浅色方盒 —— 那是通用表单控件的形状，
-                  一出现就把整页攒的编辑感抵消掉。这里只留一道书写线：
-                  和章节标题下那根线、报告里的点引线是同一套东西。
-                  16px 不只是为了层级，也是 iOS 上聚焦不触发自动放大的下限。
-                */}
-                <textarea
-                  value={question}
-                  onChange={e => setQuestion(e.target.value)}
-                  rows={2}
-                  placeholder="把问题写清楚一点，越具体越准"
-                  className="w-full resize-none border-x-0 border-t-0 border-b-[1.5px] border-ink/30 bg-transparent px-0 py-2 text-[16px] leading-[1.9] text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-vermilion"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-[11px] text-ink-mid">或者从这些开始</p>
-                {/*
-                  原来是 flex-wrap，四条问题长短不一 → 两列右边缘参差、行高不齐，
-                  看着像没排完。presets 恒为 4 条（见 PRESET_QUESTIONS / slice(0,4)），
-                  所以直接用 2×2 细线网格：等宽、对齐，和报告页的表格是同一套语言。
-                  gap-px + 底色 = 网格线，不用给每个格子画边框。
-                */}
-                <div className="grid grid-cols-2 gap-px border border-ink/15 bg-ink/15">
-                  {presets.map(q => (
-                    <button
-                      key={q}
-                      onClick={() => setQuestion(q)}
-                      className={`px-3 py-3.5 text-center text-xs leading-snug transition-colors ${
-                        question === q
-                          ? 'bg-ink text-paper'
-                          : 'bg-paper text-ink-mid hover:bg-paper-raised hover:text-ink'
-                      }`}
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* 证据可用性——诚实地先说清楚 */}
-              <div className={`border-l-2 pl-3.5 ${metrics.sufficient ? 'border-ink' : 'border-vermilion/40'}`}>
-                <div className="flex-1 min-w-0">
-                  {/*
-                    一条记录都没接的人和记录太短的人，要分开说。
-                    对前者写「消息仅 0 条，不足 20 条」是在报一个他没犯的错 ——
-                    他压根没打算导入，独立抽牌本来就是塔罗支持的用法。
-                  */}
-                  <p className="font-mono text-[11px] tracking-[0.06em]">
-                    {metrics.sufficient
-                      ? `已读取 ${metrics.totalMessages} 条记录，跨 ${metrics.spanDays} 天`
-                      : metrics.totalMessages === 0 ? '这次只有牌意' : '证据不足'}
-                  </p>
-                  <p className="mt-1.5 text-[13px] leading-[1.9] text-ink-mid">
-                    {verdict
-                      ? `恋爱分析的结论是「${verdict.band}·${verdict.lean}」${verdict.driver ? `，主要来自「${verdict.driver}」` : ''}。牌只会换个说法说这件事。`
-                      : metrics.totalMessages === 0
-                      ? '还没有接入聊天记录，牌就只有牌意，说不出你们之间的任何事实。想让它绑着你的数字说话，先做一份恋爱分析。'
-                      : `${metrics.insufficientReason}。仍然可以抽牌，但只有牌意，没有事实支撑。`}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={startDraw}
-                disabled={!question.trim()}
-                /*
-                  禁用态原来是 disabled:opacity-25 —— 一整块黑填充降到 25%，
-                  在纸底上就是一块大灰板，而它是屏幕上最大的元素。
-                  改成描边态：没填问题时只有一道细线，填了才落成实心墨块。
-                */
-                className="flex w-full items-center justify-center gap-2 border border-ink bg-ink py-4 font-mono text-[10px] uppercase tracking-[0.34em] text-paper transition-colors disabled:border-ink/20 disabled:bg-transparent disabled:text-ink-faint"
-              >
-                开始抽牌
-              </button>
-            </motion.div>
-          )}
-
-          {/* ---------------- 2 抽牌 ---------------- */}
-          {step === 'draw' && (
-            <motion.div
-              key="draw"
-              initial={{ y: 12 }} animate={{ y: 0 }}
-              className="space-y-6"
+            {/* 没填问题时只有一道细线，填了才落成实心纸块 */}
+            <button
+              onClick={startDraw}
+              disabled={!question.trim()}
+              className="mt-10 flex w-full items-center justify-center gap-2 border border-paper bg-paper py-4 font-mono text-[10px] uppercase tracking-[0.34em] text-ink transition-colors disabled:border-paper/25 disabled:bg-transparent disabled:text-paper/40"
             >
-              <div>
-                <h2 className="border-b-[1.5px] border-ink/70 pb-2.5 font-serif text-[20px] font-semibold tracking-[0.01em] sm:text-[23px]">
-                  {shuffling ? '洗牌'
-                    : picked.length < need ? `从牌堆里选 ${need} 张`
-                    : revealed.length < need ? `依次翻开这 ${need} 张` : ''}
-                </h2>
-                <p className="mt-3.5 text-[13.5px] text-ink-mid">{question}</p>
-              </div>
+              开始抽牌
+            </button>
+          </div>
+        </ReaderScene>
+      ) : step === 'draw' ? (
+        /* ---------------- 2 抽牌：还在那间屋子里，她把牌摊开了 ---------------- */
+        <ReaderScene compact showDeck={false} aside>
+          {/*
+            宽屏（≥900px）两栏：左边桌上摊着 U，右边是问题、「落到哪 · 几张」和牌位。
+            ⚠️ 门槛不是 lg（1024）：Mac 上没全屏的 Chrome 常常就是 1000 宽，第一版卡在
+               lg 上，1000 宽照样竖排，牌位全掉在屏幕外。900 时左栏 420px，U 的半径约 113，放得下。
+            挑一张，眼睛不用离开这一屏就能看见它落进哪个位置。
+            这是原来「牌阵 + 圆盘」两栏布局要解决的同一个问题（竖排时牌位掉出屏幕，
+            得滚下去看落在哪、再滚回来选），第二段改成竖排时把它带回来过一次。
+            手机上仍然竖排：U 在上，说明和牌位在下，量过一屏装得下。
 
-              {shuffling ? (
-                <div className="flex items-center justify-center h-[300px]">
-                  {/* 洗牌：一叠牌在原地抖，底下两张露边，看得出是「一叠」而不是一张 */}
-                  <div className="relative scale-[1.7] sm:scale-100">
+            items-start：左栏必须贴着桌沿开始，星盘才能一直画到穗子；
+            右栏自己 self-center，比左栏矮时和牌堆居中对齐。
+          */}
+          <div className="pb-20 pt-3 min-[900px]:grid min-[900px]:grid-cols-[minmax(0,1fr)_360px] min-[900px]:items-start min-[900px]:gap-10 min-[900px]:px-10">
+            {/* 满宽壳子：只为被 ResizeObserver 量出可用宽度，U 的半径由它反算 */}
+            <div ref={fanWrapRef} className="w-full">
+              <div
+                ref={fanBoxRef}
+                className="relative w-full"
+                /*
+                  指针统一在容器上收，不在每张牌上收：
+                  78 张牌只露几像素，逐张挂 pointerenter 在手机上根本进不去。
+                  pan-y 而不是 none —— none 会让整页在牌堆上方滑不动。
+                  沿着 U 扫的手势主要是横向分量，够用。
+                */
+                style={{ height: g.boxH, touchAction: 'pan-y' }}
+                onPointerDown={e => {
+                  draggingRef.current = true;
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
+                  trackPointer(e);
+                }}
+                onPointerMove={trackPointer}
+                onPointerUp={e => {
+                  const hit = indexAt(e.clientX, e.clientY);
+                  draggingRef.current = false;
+                  if (hit !== null) pick(hit);
+                  else applyFocus(null);
+                }}
+                onPointerCancel={() => { draggingRef.current = false; applyFocus(null); }}
+                onPointerLeave={() => { if (!draggingRef.current) applyFocus(null); }}
+              >
+                {/*
+                  桌布上的星盘，圆心就是 U 的支点。它是桌面的一部分，所以一直都在：
+                  洗牌时在、牌摊开时在、牌抽完淡出之后也在 —— 右边的牌位不会因为
+                  牌堆消失而跳位置。
+
+                  单独包一层 overflow-clip，只裁它不裁牌。top 往上多给 12px（外层的 pt-3），
+                  星盘的上半圈才会一直画到桌沿的穗子；第一版在这 12px 处被切出一道看不见的线。
+                */}
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 -top-3 overflow-clip">
+                  <div className="absolute inset-x-0" style={{ top: 12 }}>
+                    <TableWheel r={g.wheelR} cy={g.pivotY} />
+                  </div>
+                </div>
+
+                {shuffling ? (
+                  /* 洗牌：一叠牌在盘心抖，底下两张露边，看得出是「一叠」而不是一张 */
+                  <div
+                    className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2"
+                    style={{ top: g.pivotY + g.R * 0.45 }}
+                  >
                     {[8, 4].map((d, k) => (
                       <div key={k} className="absolute inset-0 opacity-40"
                         style={{ transform: `translate(${d}px, ${d}px) rotate(${d / 2}deg)` }}>
-                        <TarotCardBack size="lg" />
+                        <TarotCardBack size="sm" />
                       </div>
                     ))}
                     <motion.div
@@ -955,320 +1154,238 @@ export default function Tarot({
                       transition={{ duration: 0.45, repeat: Infinity }}
                       className="relative"
                     >
-                      <TarotCardBack size="lg" />
+                      <TarotCardBack size="sm" />
                     </motion.div>
                   </div>
-                </div>
-              ) : (
-                /*
-                  宽屏分两栏：牌阵在左，牌堆在右。
-                  竖排时牌阵一高（十字 837px）牌堆就掉出屏幕，
-                  得滚下去选、再滚上来看落在哪 —— 两栏之后两者始终在同一屏里。
-                  items-start 很重要：两栏各自顶对齐，不让矮的牌阵被拉长。
-                */
-                <div className="space-y-5 lg:flex lg:items-start lg:gap-10 lg:space-y-0">
-                  {/*
-                    各个位置：先空着摆出来，让人看见牌会落到哪。
-
-                    用 grid 不用 flex：每个位置自己声明第几列第几行，
-                    十字、菱形这些形状 flex 排不出来。列宽用 minmax(0,1fr)，
-                    牌再配 fluid —— 于是 1/3/5/10 张在任何屏宽都自动缩到放得下。
-                  */}
-                  <div className="lg:min-w-0 lg:flex-1">
-                  <div
-                    className="mx-auto grid justify-center gap-x-2 gap-y-4 sm:gap-x-4 sm:gap-y-5"
-                    style={{
-                      gridTemplateColumns: `repeat(${spread.cols}, minmax(0, 1fr))`,
-                      maxWidth: spread.cols * spread.colWidth,
-                    }}
-                  >
-                    {spread.positions.map((pos, i) => {
-                      const card = drawn[i];
-                      const isNext = picked.length === i;
-                      return (
-                        <div
-                          key={pos.key}
-                          className={pos.cross ? '' : 'space-y-2'}
-                          style={{
-                            gridColumn: pos.col,
-                            gridRow: pos.row,
-                            /*
-                              「阻碍」和「现况」占同一格，横压在上面 —— 这是凯尔特十字的签名。
-
-                              ⚠️ 旋转只能加在**牌**上，不能加在整格上。
-                                 加在整格上，标签和「点一下翻开」会跟着竖过来，
-                                 而且会和现况的标签叠在一起。
-                              这一格也因此不渲染标签和说明：同一格里两份文字必然打架，
-                              横着的那张本身就说明了它是哪一个。
-                            */
-                            ...(pos.cross ? { zIndex: 2, alignSelf: 'center', justifySelf: 'center', width: '100%' } : null),
-                          }}
-                        >
-                          {!pos.cross && (
-                          <div className="text-center">
-                            {/* 原来这里还有一行 ORIGIN / PRESENT / TREND，是中文标签的拉丁复读，纯装饰 */}
-                            <p className={`font-serif text-[14px] font-semibold transition-colors ${
-                              card || isNext ? 'text-ink' : 'text-ink-faint'
-                            }`}>{pos.label}</p>
-                          </div>
-                          )}
-                          {/*
-                            ⚠️ 横压那张必须缩。牌是 2:3，转 90° 之后宽度变成原来的 1.5 倍，
-                               原样放会撑出格子、盖住左右两张。
-                               0.78 之后宽度约 1.17 格，多出来的那点正好落进列间沟里 ——
-                               压过去一点是对的（实体牌就是这样），盖住邻居不是。
-                          */}
-                          <div style={pos.cross ? { transform: 'rotate(90deg) scale(0.78)' } : undefined}>
-
-                          {card ? (
-                            /* 落位：从牌堆方向弹上来，再交给翻牌 */
-                            <motion.div
-                              // 同上：不从 opacity 0 起，否则抽到的三张牌在被节流的环境里是隐形的
-                              initial={{ y: 120, scale: 0.75 }}
-                              animate={{ y: 0, scale: 1 }}
-                              transition={{ type: 'spring', stiffness: 240, damping: 22 }}
-                              onClick={() => reveal(i)}
-                              onKeyDown={e => {
-                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(i); }
-                              }}
-                              // 扇形里的牌是带 aria-label 的 button，翻牌却是个裸 div：
-                              // 同一个流程里两套标准，键盘用户走到这一步就卡死了
-                              role="button"
-                              tabIndex={revealed.includes(i) ? -1 : 0}
-                              aria-label={revealed.includes(i) ? `${pos.label}：${card.name}` : `翻开${pos.label}这张牌`}
-                              className="relative cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-vermilion/70 sm:rounded-[1.75rem]"
-                              style={{ perspective: 1000 }}
-                            >
-                              {/* 翻牌：用 3D rotateY，牌背与牌面各占一半 */}
-                              <motion.div
-                                animate={{ rotateY: revealed.includes(i) ? 180 : 0 }}
-                                transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
-                                style={{ transformStyle: 'preserve-3d' }}
-                                className="relative"
-                              >
-                                <div className="backface-hidden">
-                                  <TarotCardBack size={spread.card} fluid />
-                                </div>
-                                <div className="absolute inset-0 backface-hidden"
-                                  style={{ transform: 'rotateY(180deg)' }}>
-                                  <TarotCard name={card.name} reversed={card.reversed} size={spread.card} fluid />
-                                </div>
-                              </motion.div>
-                            </motion.div>
-                          ) : (
-                            /*
-                              空位用细线，不用虚线大框：虚线空框是「表单没填完」的语言。
-                              尺寸跟着 md 走（和落位后的牌一致）—— 这一屏的主角是牌堆，
-                              三个空框占满首屏会把唯一能操作的东西挤到屏幕外。
-                            */
-                            <div className={`relative flex aspect-[2/3] w-full items-center justify-center border bg-paper-raised transition-colors ${
-                              isNext ? 'border-vermilion' : 'border-ink/20'
-                            }`}>
-                              {/*
-                                原来内层是一圈 border-dotted —— 虚线空框是「表单没填完」的语言，
-                                和一副牌没有任何关系。换成牌背那个同心徽记的极淡拓印：
-                                空位于是变成「这里要落一张牌」，而不是「这里有个字段没填」。
-                              */}
-                              <svg viewBox="0 0 100 150" aria-hidden="true"
-                                className="pointer-events-none absolute inset-0 h-full w-full text-ink opacity-[0.11]">
-                                <g fill="none" stroke="currentColor" strokeWidth="0.7">
-                                  <circle cx="50" cy="75" r="26" />
-                                  <circle cx="50" cy="75" r="17" />
-                                  <path d="M50 49l16 26-16 26-16-26z" />
-                                  <path d="M24 75h52M50 49v52" />
-                                </g>
-                              </svg>
-                              {isNext && (
-                                <motion.span
-                                  animate={{ opacity: [0.3, 1, 0.3] }}
-                                  transition={{ duration: 1.8, repeat: Infinity }}
-                                  /* 徽记拓印的十字线正好穿过正中，标签要垫一块纸把线扣掉才读得出 */
-                                  className="relative bg-paper-raised px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em] text-vermilion"
-                                >下一张</motion.span>
-                              )}
-                            </div>
-                          )}
-
-                          </div>
-                          {/* min-h 锁两行：各位置的 hint 长短不一，不锁高同一行的底边会参差 */}
-                          {!pos.cross && (
-                            <p className={`text-center text-[10px] leading-relaxed text-ink-faint ${
-                              spread.cols <= 3 ? 'min-h-[2.9em]' : ''
-                            }`}>
-                              {card && !revealed.includes(i) ? '点一下翻开' : card ? '' : pos.hint}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  </div>
-
-                  {/* 牌堆：摊成扇形，自己点。宽屏它是右栏，窄屏它在牌阵下面 */}
+                ) : (
                   <AnimatePresence>
                     {picked.length < need && (
-                      <motion.div
-                        key="fan"
-                        exit={{ opacity: 0, y: 40, transition: { duration: 0.35 } }}
-                        /* 右栏宽度必须装得下整个圆盘：直径 = (R + 牌高/2) × 2 = hypot(140+69, 46)×2 ≈ 428 */
-                        /*
-                          地色换成牌背的深紫。
-                          量过这一屏：地色只有纸一种、真实插画 0 张、最大字号 23px ——
-                          整个产品里「牌」最该说话的一屏，长得和牌毫无关系。
-                          51 张牌背摊在深紫上才是一副牌摊在桌上的样子，摊在米色纸上不是。
-
-                          ⚠️ 深紫加在**外层**，不加在 ringWrapRef 上：
-                             那个 div 正被 ResizeObserver 量宽度来反算半径，
-                             给它加内边距会把盘一起缩小。
-                        */
-                        /*
-                          横向不留内边距：盘是内切圆，四角本来就是空的，
-                          左右再留 16px 只会把半径从 146 压到 130（缩 11%）。
-                          内边距只给下面那两行说明。
-                        */
-                        className="space-y-4 rounded-2xl bg-sunset-purple py-5 lg:w-[440px] lg:shrink-0 lg:space-y-3"
-                      >
-                        {/*
-                          高度按「牌高 + 两端抬起的高度」给：
-                          手机 138 + 18 = 156，桌面 138 + 74 = 212。
-                          原来手机写的是 136px，比需要的短 19px，牌会顶出框外。
-                        */}
-                        {/* 满宽壳子：只为被 ResizeObserver 量出可用宽度，盘的半径由它反算 */}
-                        <div ref={ringWrapRef} className="w-full">
-                        <div
-                          ref={fanBoxRef}
-                          /*
-                            高度 = 抬起 30px + 牌高 138 + 下探量（桌面 108、手机 45）。
-                            下探量：牌绕下方远处的支点转，转到两端时下角会比底边更低，
-                            而容器是 overflow-hidden —— 不留这段，底边就被切成一条平口。
-                            顶部不用留：支点在下方，旋转只会让牌更低，不会更高。
-                          */
-                          /*
-                            竖弧的框：窄而高。
-                            高度给足弧长（支点在右边 5 倍牌宽处，70° 弧约 500px）
-                            加上两端牌的外接高度；宽度只要装下牌加上弧的矢高。
-                          */
-                          /* 正方形，边长 = 外接角 ×2。外面那层满宽壳子负责被实测 */
-                          className="relative mx-auto"
-                          // 用 style 给尺寸：R 是跟着屏宽变的数字，不是 Tailwind 类名能表达的
-
-                          /*
-                            指针统一在容器上收，不在每张牌上收：
-                            51 张牌只露 3px，逐张挂 pointerenter 在手机上根本进不去。
-                            pan-y 而不是 none —— none 会让整页在牌堆上方滑不动，
-                            用户想往下滚就被困住了。横向归我们，纵向还给页面。
-                          */
-                          style={{
-                            /*
-                              边长按**外接角**算，不是按半牌高。
-                              牌指向圆心外侧，外边缘在 R + h/2 处，但那条边的两个角
-                              还各偏出 w/2 —— 真正的外接半径是 hypot(R + h/2, w/2)。
-                              按 R + h/2 给会少 5px，牌角就探出容器。
-                            */
-                            width: Math.hypot(R + FAN_CARD.h / 2, FAN_CARD.w / 2) * 2,
-                            height: Math.hypot(R + FAN_CARD.h / 2, FAN_CARD.w / 2) * 2,
-
-                            /*
-                              圆盘是绕着转的，横竖都归我们 —— 但 none 会让整页在牌堆上
-                              滑不动，用户想往下滚就被困住。留 pan-y 把纵向还给页面，
-                              绕圈的手势主要是横向分量，够用。
-                            */
-                            touchAction: 'pan-y',
-                          }}
-                          onPointerDown={e => {
-                            draggingRef.current = true;
-                            e.currentTarget.setPointerCapture?.(e.pointerId);
-                            trackPointer(e);
-                          }}
-                          onPointerMove={trackPointer}
-                          onPointerUp={e => {
-                            const hit = indexAt(e.clientX, e.clientY);
-                            draggingRef.current = false;
-                            if (hit !== null) pick(hit);
-                            else applyFocus(null);
-                          }}
-                          onPointerCancel={() => { draggingRef.current = false; applyFocus(null); }}
-                          onPointerLeave={() => { if (!draggingRef.current) applyFocus(null); }}
-                        >
-                          {fan.map((c, i) => {
-                            if (picked.includes(i)) return null;
-                            // 发牌从中间往两边散开，不是从最左边排队进来
-                            const deal = Math.min(0.55, Math.abs(angleOf(i)) * 0.006);
-                            return (
-                              <button
-                                key={i}
-                                ref={el => { cardRefs.current[i] = el; }}
-                                type="button"
-                                aria-label={`抽第 ${picked.length + 1} 张`}
-                                // 键盘走 onKeyDown：指针的选牌在容器的 onPointerUp 上，
-                                // 两边都挂 onClick 会让一次触摸选两张
-                                onKeyDown={e => {
-                                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(i); }
-                                }}
-                                onFocus={() => applyFocus(i)}
-                                className={`fan-card absolute rounded-xl focus-visible:outline-none
-                                  focus-visible:ring-2 focus-visible:ring-vermilion/70 ${
-                                    'fan-card-deal'
-                                  }`}
-                                style={{
-                                  // 圆盘不用 transform-origin 做支点：先摆到正中，再由 rotate+translateY 推出去
-                                  left: '50%',
-                                  top: '50%',
-                                  /*
-                                    初始位置和 applyFocus 写进去的必须出自同一个 cardTransform，
-                                    两份公式差一点，滑动开始时就会跳一下。
-                                  */
-                                  transform: cardTransform(i, null),
-                                  animationDelay: `${deal}s`,
-                                  zIndex: i,
-                                }}
-                              >
-                                {/* 圆盘上后一张压住前一张的右半，露的仍是左缘 */}
+                      /* 牌抽完只淡出，不带位移：星盘和盒子高度都留着，旁边的东西一格都不动 */
+                      <motion.div key="fan" className="absolute inset-0" exit={{ opacity: 0, transition: { duration: 0.35 } }}>
+                        {fan.map((c, i) => {
+                          if (picked.includes(i)) return null;
+                          // 发牌从弧底往两头散开，不是从最左边排队进来
+                          const deal = Math.min(0.55, Math.abs(angleOf(i)) * 0.006);
+                          return (
+                            <button
+                              key={i}
+                              ref={el => { cardRefs.current[i] = el; }}
+                              type="button"
+                              aria-label={`抽第 ${picked.length + 1} 张`}
+                              // 键盘走 onKeyDown：指针的选牌在容器的 onPointerUp 上，
+                              // 两边都挂 onClick 会让一次触摸选两张
+                              onKeyDown={e => {
+                                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(i); }
+                              }}
+                              onFocus={() => applyFocus(i)}
+                              className="fan-card fan-card-deal absolute rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-paper/70"
+                              style={{
+                                // 先摆到支点上，再由 rotate + translateY 推出去（见 cardTransform）
+                                left: '50%',
+                                top: g.pivotY,
+                                // 初始位置和 applyFocus 写进去的必须出自同一个 cardTransform
+                                transform: cardTransform(i, null),
+                                animationDelay: `${deal}s`,
+                                zIndex: baseZ(i),
+                              }}
+                            >
+                              {/*
+                                露出来的是每张牌的一条边 —— 牌缘让一叠牌读得出是纸。
+                                左半边露左缘；右半边的牌被左边那张压住左侧、露出右缘，
+                                所以整张镜像一下，亮边跟着换到右边。牌背图案是对称的，镜像看不出来。
+                                镜像加在里层，不进 cardTransform：发牌动画的起点没有它，
+                                写进去会让右半边每张在发牌途中翻一下面。
+                              */}
+                              <div style={i > mid ? { transform: 'scaleX(-1)' } : undefined}>
                                 <TarotCardBack size="sm" edge />
-                              </button>
-                            );
-                          })}
-                        </div>
-                        </div>
-                        <div className="space-y-1.5 px-4 text-center">
-                          <p className="text-[12.5px] text-paper/70">
-                            滑过牌堆挑一张，它会落到
-                            {/* 抽满那一刻 picked.length === need，越界一下就是白屏。退场动画期间这段仍可能被读到 */}
-                            <span className="font-serif font-semibold text-paper">{spread.positions[picked.length]?.label ?? ''}</span>
-                            <span className="mx-2 text-paper/40">·</span>
-                            <span className="font-mono tabular-nums text-paper/55">{picked.length} / {need}</span>
-                          </p>
-                          {/*
-                            牌堆全在弧上，只是屏幕装不下。这件事不说，用户不会想到去拖。
-
-                            ⚠️ 这里以前写「整副 51 张」——「整副」是"完整的一副"，
-                            而完整的塔罗是 78 张。宝剑只有 1 张、星币 0 张，
-                            懂塔罗的人抽几轮就会发现这两个花色几乎不出现。
-                            差多少就写多少，不拿一个词把缺口糊过去。
-                          */}
-                          {/*
-                            60% 不是随手给的：纸色 45% 压在深紫 #2E0854 上算出来是
-                            3.72:1，而这行是 9px 正文，AA 要 4.5:1 —— 不过。
-                            60% 是 5.67:1。
-                          */}
-                          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-paper/60">
-                            <span className="tabular-nums">牌堆 {fan.length} 张</span>
-                            {fan.length < TAROT_CARDS.length && (
-                              <span className="tabular-nums">
-                                <span className="mx-1.5">·</span>
-                                满副 {TAROT_CARDS.length}，插画还在补
-                              </span>
-                            )}
-                          </p>
-                        </div>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
-              )}
-            </motion.div>
-          )}
+                )}
+              </div>
+            </div>
 
+            {/* 右栏（手机上在 U 下面）：问题、现在该做什么、牌位 */}
+            <div className="px-7 min-[900px]:self-center min-[900px]:px-0">
+              <div className="space-y-1.5 text-center">
+                <p className="mx-auto max-w-md font-serif text-[15px] leading-[1.6] text-paper/90">{question}</p>
+                {shuffling ? (
+                  <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-paper/60">洗牌</p>
+                ) : picked.length < need ? (
+                  <>
+                    <p className="text-[12.5px] text-paper/70">
+                      滑过牌堆挑一张，它会落到
+                      {/* 抽满那一刻 picked.length === need，越界一下就是白屏 */}
+                      <span className="font-serif font-semibold text-paper">{spread.positions[picked.length]?.label ?? ''}</span>
+                      <span className="mx-2 text-paper/40">·</span>
+                      <span className="font-mono tabular-nums text-paper/55">{picked.length} / {need}</span>
+                    </p>
+                    {/* 两栏时牌位底下不放说明，只在这里写下一张的 */}
+                    {sideBySide && spread.positions[picked.length] && (
+                      <p className="text-[11.5px] text-paper/55">{spread.positions[picked.length].hint}</p>
+                    )}
+                    {/*
+                      差多少就写多少，不拿一个词把缺口糊过去：
+                      78 张都摊在桌上，但其中 LINE_ART 张还没出图，抽到时翻开是线稿。
+                      60% 不是随手给的：纸色 45% 压在深紫上是 3.72:1，9px 正文 AA 要 4.5:1。
+                    */}
+                    <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-paper/60">
+                      <span className="tabular-nums">牌堆 {fan.length - picked.length} 张</span>
+                      {LINE_ART > 0 && (
+                        <span className="tabular-nums">
+                          <span className="mx-1.5">·</span>
+                          其中 {LINE_ART} 张插画还在补，抽到时先是线稿
+                        </span>
+                      )}
+                    </p>
+                  </>
+                ) : revealed.length < need ? (
+                  <h2 className="font-serif text-[20px] font-semibold text-paper sm:text-[23px]">依次翻开这 {need} 张</h2>
+                ) : null}
+              </div>
+
+              {/*
+                各个位置：先空着摆出来，让人看见牌会落到哪。
+
+                用 grid 不用 flex：每个位置自己声明第几列第几行，
+                十字、菱形这些形状 flex 排不出来。列宽用 minmax(0,1fr)，
+                牌再配 fluid —— 于是 1/3/5/10 张在任何屏宽都自动缩到放得下。
+              */}
+              <div className="mt-7 w-full">
+            <div
+              className="mx-auto grid justify-center gap-x-2 gap-y-4 sm:gap-x-4 sm:gap-y-5"
+              style={{
+                gridTemplateColumns: `repeat(${spread.cols}, minmax(0, 1fr))`,
+                maxWidth: sideBySide ? spread.cols * slotColW + (spread.cols - 1) * 16 : spread.cols * slotColW,
+              }}
+            >
+              {spread.positions.map((pos, i) => {
+                const card = drawn[i];
+                const isNext = picked.length === i;
+                return (
+                  <div
+                    key={pos.key}
+                    className={pos.cross ? '' : 'space-y-2'}
+                    style={{
+                      gridColumn: pos.col,
+                      gridRow: pos.row,
+                      /*
+                        「阻碍」和「现况」占同一格，横压在上面 —— 这是凯尔特十字的签名。
+
+                        ⚠️ 旋转只能加在**牌**上，不能加在整格上。
+                           加在整格上，标签和「点一下翻开」会跟着竖过来，
+                           而且会和现况的标签叠在一起。
+                        这一格也因此不渲染标签和说明：同一格里两份文字必然打架，
+                        横着的那张本身就说明了它是哪一个。
+                      */
+                      ...(pos.cross ? { zIndex: 2, alignSelf: 'center', justifySelf: 'center', width: '100%' } : null),
+                    }}
+                  >
+                    {!pos.cross && (
+                    <div className="text-center">
+                      {/* 原来这里还有一行 ORIGIN / PRESENT / TREND，是中文标签的拉丁复读，纯装饰 */}
+                      <p className={`whitespace-nowrap font-serif text-[14px] font-semibold transition-colors ${
+                        card || isNext ? 'text-paper' : 'text-paper/45'
+                      }`}>{pos.label}</p>
+                    </div>
+                    )}
+                    {/*
+                      ⚠️ 横压那张必须缩。牌是 2:3，转 90° 之后宽度变成原来的 1.5 倍，
+                         原样放会撑出格子、盖住左右两张。
+                         0.78 之后宽度约 1.17 格，多出来的那点正好落进列间沟里 ——
+                         压过去一点是对的（实体牌就是这样），盖住邻居不是。
+                    */}
+                    <div ref={el => { slotRefs.current[i] = el; }} style={pos.cross ? { transform: 'rotate(90deg) scale(0.78)' } : undefined}>
+
+                    {card ? (
+                      /* 落位：从 U 上飞过来的动画在外层 div 上（见 flyFrom），这里只管翻牌 */
+                      <motion.div
+                        onClick={() => reveal(i)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(i); }
+                        }}
+                        // 扇形里的牌是带 aria-label 的 button，翻牌却是个裸 div：
+                        // 同一个流程里两套标准，键盘用户走到这一步就卡死了
+                        role="button"
+                        tabIndex={revealed.includes(i) ? -1 : 0}
+                        aria-label={revealed.includes(i) ? `${pos.label}：${card.name}` : `翻开${pos.label}这张牌`}
+                        className="relative cursor-pointer rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-paper/70 sm:rounded-[1.75rem]"
+                        style={{ perspective: 1000 }}
+                      >
+                        {/* 翻牌：用 3D rotateY，牌背与牌面各占一半 */}
+                        <motion.div
+                          animate={{ rotateY: revealed.includes(i) ? 180 : 0 }}
+                          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+                          style={{ transformStyle: 'preserve-3d' }}
+                          className="relative"
+                        >
+                          <div className="backface-hidden">
+                            <TarotCardBack size={spread.card} fluid />
+                          </div>
+                          <div className="absolute inset-0 backface-hidden"
+                            style={{ transform: 'rotateY(180deg)' }}>
+                            <TarotCard name={card.name} reversed={card.reversed} size={spread.card} fluid />
+                          </div>
+                        </motion.div>
+                      </motion.div>
+                    ) : (
+                      /*
+                        空位用细线，不用虚线大框：虚线空框是「表单没填完」的语言。
+                        尺寸跟着 md 走（和落位后的牌一致）—— 这一屏的主角是牌堆，
+                        三个空框占满首屏会把唯一能操作的东西挤到屏幕外。
+                      */
+                      <div className={`relative flex aspect-[2/3] w-full items-center justify-center border bg-paper/[0.04] transition-colors ${
+                        isNext ? 'border-paper/80' : 'border-paper/20'
+                      }`}>
+                        {/*
+                          原来内层是一圈 border-dotted —— 虚线空框是「表单没填完」的语言，
+                          和一副牌没有任何关系。换成牌背那个同心徽记的极淡拓印：
+                          空位于是变成「这里要落一张牌」，而不是「这里有个字段没填」。
+                        */}
+                        <svg viewBox="0 0 100 150" aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 h-full w-full text-paper opacity-[0.16]">
+                          <g fill="none" stroke="currentColor" strokeWidth="0.7">
+                            <circle cx="50" cy="75" r="26" />
+                            <circle cx="50" cy="75" r="17" />
+                            <path d="M50 49l16 26-16 26-16-26z" />
+                            <path d="M24 75h52M50 49v52" />
+                          </g>
+                        </svg>
+                        {isNext && (
+                          <motion.span
+                            animate={{ opacity: [0.3, 1, 0.3] }}
+                            transition={{ duration: 1.8, repeat: Infinity }}
+                            /* 徽记拓印的十字线正好穿过正中，标签要垫一块纸把线扣掉才读得出 */
+                            className="relative whitespace-nowrap rounded-sm bg-paper px-1 py-0.5 font-mono text-[9px] uppercase tracking-[0.12em] text-ink"
+                          >下一张</motion.span>
+                        )}
+                      </div>
+                    )}
+
+                    </div>
+                    {/* min-h 锁两行：各位置的 hint 长短不一，不锁高同一行的底边会参差 */}
+                    {!pos.cross && !sideBySide && (
+                      <p className={`text-center text-[10px] leading-relaxed text-paper/50 ${
+                        spread.cols <= 3 ? 'min-h-[2.9em]' : ''
+                      }`}>
+                        {card && !revealed.includes(i) ? '点一下翻开' : card ? '' : pos.hint}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+              </div>
+            </div>
+          </div>
+        </ReaderScene>
+      ) : (
+      <div className="relative z-[1] mx-auto w-full max-w-3xl flex-1 px-7 pb-24 pt-10 md:px-12">
+        <div className="relative flex-1">
           {/* ---------------- 3 证据 + 解读 ---------------- */}
           {step === 'reading' && (
             <motion.div
@@ -1276,6 +1393,18 @@ export default function Tarot({
               initial={{ y: 12 }} animate={{ y: 0 }}
               className="space-y-8"
             >
+              {/*
+                你问的是什么。解读的最后一段会先正面回答这句话，
+                所以它必须写在这一屏最上面 —— 第一版这一屏没有它，
+                读到结尾「这几张牌给的回答是」时，得往回翻才想得起问的是什么。
+              */}
+              <div className="text-center">
+                <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-ink-faint">你问的是</p>
+                <h2 className="mx-auto mt-2 max-w-xl font-serif text-[24px] font-semibold leading-[1.4] text-ink sm:text-[28px]">
+                  {question}
+                </h2>
+              </div>
+
               {/*
                 抽牌屏的主角是牌堆，**这一屏的主角是抽到的牌** —— 它们是整个仪式的回报。
                 和抽牌屏用同一套格子坐标：同一个牌阵在两屏上是同一个形状，
@@ -1442,6 +1571,8 @@ export default function Tarot({
             </motion.div>
           )}
         </div>
+      </div>
+      )}
       </div>
     </div>
   );

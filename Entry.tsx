@@ -334,7 +334,12 @@ function Deck({ onOpen }: { onOpen: () => void }) {
         ))}
       </div>
       <p className="mt-9 text-center font-mono text-[10px] uppercase tracking-[0.16em] text-ink-faint transition-colors group-hover:text-vermilion">
-        <span className="tabular-nums">牌堆 {ILLUSTRATED.length} 张</span>
+        {/*
+          牌堆现在是完整的 78 张（Tarot.tsx 的 DECK）。这里原来写的是有插画的 51 张 ——
+          改成全摊之后没跟着改，首屏说 51、桌上摊 78，自相矛盾。
+          下面牌墙那个标签说的是插画画了几张：补齐之前是「51 / 78」，现在是「整副 78 张」。
+        */}
+        <span className="tabular-nums">牌堆 {TAROT_CARDS.length} 张</span>
         <span className="mx-2">·</span>
         <span>直接抽一张</span>
       </p>
@@ -468,7 +473,10 @@ export default function Entry({
               <div className="rh-scrim" />
               <div className={`relative mx-auto w-full max-w-6xl px-7 md:px-14 py-24 md:py-32`}>
                 <p className="font-mono text-[10px] uppercase tracking-[0.26em] text-neon-green">
-                  {ILLUSTRATED.length} / {TAROT_CARDS.length}
+                  {/* 补齐之前写「51 / 78」。补齐之后照原样会显示「78 / 78」，读着像个进度条 */}
+                  {ILLUSTRATED.length < TAROT_CARDS.length
+                    ? `${ILLUSTRATED.length} / ${TAROT_CARDS.length}`
+                    : `整副 ${TAROT_CARDS.length} 张`}
                 </p>
                 <h2 className="rh-ink-display mt-6 max-w-3xl">
                   这一墙牌，
@@ -476,7 +484,11 @@ export default function Entry({
                   是一张一张画出来的
                 </h2>
                 <p className="mt-8 max-w-md text-[13.5px] leading-[2] text-paper/70">
-                  四种油墨、无脸剪影、丝网印。51 张里有 50 张的天上挂着同一弯月，
+                  {/*
+                    这个数是一张张看过数出来的，不是算的：2026-09-27 补齐 78 张之后重新核过，
+                    新补的 27 张每张都有那弯月。以后重画了哪张牌，这句要跟着重数。
+                  */}
+                  四种油墨、无脸剪影、丝网印。78 张里有 77 张的天上挂着同一弯月，
                   唯一没有的是太阳那张 —— 它的天顶已经被占了。
                 </p>
               </div>
