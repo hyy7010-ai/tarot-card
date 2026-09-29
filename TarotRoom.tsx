@@ -293,7 +293,7 @@ function DeckOnTable() {
 }
 
 /** 桌角的一支蜡烛。器物用橙、人物用粉是牌面的规矩，烛身在这里算「柱子」那一类，用粉 */
-function Candle() {
+export function Candle() {
   return (
     <div
       className="absolute right-[8%] top-0 flex flex-col items-center"
