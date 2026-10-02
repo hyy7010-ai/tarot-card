@@ -143,6 +143,113 @@ export const SPREADS: Spread[] = [
       { key: 'result', label: '结果', hint: '这条线走到头的样子', col: 4, row: 1 },
     ],
   },
+  /*
+    以下是感情专题牌阵，形状照原图摆，原图是错位排的地方就近落到格子上。
+    label 要短（窄屏一行 14px 只放得下五六个字），也是模型读到的位置名，所以得自己能说明白；
+    原图上那句完整的问题放在 hint 里。
+    牌和牌堆里的一样大（sm，92px）：列宽 100 = 牌宽 + 列间沟。再大三行就是 690px，手机上翻牌得一路往下滑。
+  */
+  {
+    key: 'revive', name: '复活我的爱人', note: '感情 · 复合 · 分手真因 · 5 张',
+    cols: 3, rows: 2, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'feel', label: 'TA的感情', hint: '对方对我的感情', col: 1, row: 1 },
+      { key: 'contact', label: '会联系我吗', hint: '对方是否会主动联系我', col: 2, row: 1 },
+      { key: 'reunite', label: '想复合吗', hint: 'TA 还想复合吗', col: 3, row: 1 },
+      { key: 'reason', label: '分手真因', hint: '对方内心最真实的分手原因', col: 1, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我应该怎么做', col: 3, row: 2 },
+    ],
+  },
+  {
+    key: 'revive2', name: '复活爱人 2.0', note: '分手想法 · 挽回态度 · 新的人 · 6 张',
+    cols: 3, rows: 2, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'breakup', label: '分手的想法', hint: 'TA 怎么看这次分手', col: 1, row: 1 },
+      { key: 'feel', label: '现在的感情', hint: 'TA 现在对我的感情', col: 2, row: 1 },
+      { key: 'contact', label: '会联系我吗', hint: 'TA 还会主动联系我吗', col: 3, row: 1 },
+      { key: 'winback', label: '挽回的态度', hint: '如果我去挽回，TA 会是什么态度', col: 1, row: 2 },
+      { key: 'others', label: '接触新人', hint: 'TA 是否在接触新的人', col: 2, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我现在应该怎么做', col: 3, row: 2 },
+    ],
+  },
+  {
+    key: 'cold-shoulder', name: '热脸贴冷屁股', note: '变心 · 不理我 · 持续多久 · 5 张',
+    cols: 3, rows: 2, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'changed', label: '变心了吗', hint: 'TA 是否变心', col: 1, row: 1 },
+      { key: 'ignore', label: '为何不理我', hint: 'TA 为什么不理我', col: 2, row: 1 },
+      { key: 'howlong', label: '会持续多久', hint: '这种情况会持续多久', col: 3, row: 1 },
+      { key: 'continue', label: '还能继续吗', hint: '这段关系还可以继续吗', col: 1, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我现在应该怎么做', col: 3, row: 2 },
+    ],
+  },
+  {
+    key: 'cold-heart', name: '你的心，好冰冷', note: '为何绝情 · 会不会改变态度 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'why', label: '为何绝情', hint: 'TA 为什么对我这么绝情', col: 2, row: 1 },
+      { key: 'thought', label: '真实想法', hint: 'TA 对这段关系真实的想法', col: 1, row: 2 },
+      { key: 'feel', label: '现在的情感', hint: 'TA 现在对我的情感', col: 2, row: 2 },
+      { key: 'change', label: '会改变吗', hint: 'TA 会改变态度吗', col: 3, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我现在应该怎么做', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'tug', name: '极限拉扯', note: '这段关系是否值得 · 6 张',
+    cols: 3, rows: 3, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'need', label: '你的需求', hint: '你在这段关系里到底要什么', col: 2, row: 3 },
+      { key: 'hesitate', label: 'TA犹豫的原因', hint: '是什么让 TA 迟迟不定', col: 1, row: 2 },
+      { key: 'stuck', label: '停滞的根源', hint: '关系卡住不动的根源', col: 3, row: 2 },
+      { key: 'third', label: '第三方介入', hint: '是否有第三方介入', col: 1, row: 1 },
+      { key: 'turn', label: '转机', hint: '什么时候会有转机', col: 2, row: 1 },
+      { key: 'todo', label: '我该如何做', hint: '接下来我该怎么做', col: 3, row: 1 },
+    ],
+  },
+  {
+    key: 'pursuit', name: '求爱之路', note: '好感 · 推进 · 能不能在一起 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'interest', label: '好感程度', hint: 'TA 对我有兴趣吗，好感有多少', col: 2, row: 1 },
+      { key: 'image', label: '我在TA眼中', hint: '在 TA 眼里我是个什么样的人', col: 1, row: 2 },
+      { key: 'push', label: '会主动推进吗', hint: 'TA 会主动推进关系吗', col: 2, row: 2 },
+      { key: 'develop', label: '能更进一步吗', hint: '朋友能不能暧昧，暧昧能不能在一起', col: 3, row: 2 },
+      { key: 'todo', label: '下一步怎么走', hint: '如果想更进一步，我该怎么做', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'first-sight', name: '一见钟情', note: '第一眼 · 还会见面吗 · 5 张',
+    cols: 2, rows: 3, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'first', label: '第一眼', hint: '第一眼见到我时，TA 心里在想什么', col: 2, row: 1 },
+      { key: 'develop', label: '想发展吗', hint: 'TA 是否想和我进一步发展', col: 1, row: 2 },
+      { key: 'meet', label: '还会见面吗', hint: '我们还会再见面吗', col: 2, row: 2 },
+      { key: 'attitude', label: '相处的态度', hint: 'TA 打算怎么和我相处，对我什么态度', col: 1, row: 3 },
+      { key: 'want', label: '想见我吗', hint: 'TA 想见我吗', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'lovebrain', name: '恋爱脑五连问', note: '理想型 · 喜欢我什么 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'looks', label: '理想型外貌', hint: 'TA 的理想型长什么样、什么身材', col: 2, row: 1 },
+      { key: 'type', label: '理想型性格', hint: 'TA 理想中的伴侣是什么性格', col: 1, row: 2 },
+      { key: 'me', label: '我的外貌', hint: 'TA 眼中我的外貌，是不是 TA 的理想型', col: 2, row: 2 },
+      { key: 'why', label: '喜欢我什么', hint: 'TA 为什么喜欢我', col: 3, row: 2 },
+      { key: 'physical', label: '生理吸引', hint: 'TA 对我有没有生理上的喜欢', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'lovebrain2', name: '恋爱脑 2.0', note: 'TA 和前任 · 放下了吗 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, card: 'sm',
+    positions: [
+      { key: 'then', label: '对前任如何', hint: '和前任在一起时，TA 对前任怎么样', col: 2, row: 1 },
+      { key: 'why', label: '为何分手', hint: 'TA 和前任为什么分手', col: 1, row: 2 },
+      { key: 'mode', label: '相处模式', hint: 'TA 和前任是怎么相处的', col: 3, row: 2 },
+      { key: 'over', label: '放下了吗', hint: 'TA 是否已经放下前任', col: 1, row: 3 },
+      { key: 'place', label: '前任的地位', hint: '前任在 TA 心里是什么位置', col: 3, row: 3 },
+    ],
+  },
 ];
 
 const PRESET_QUESTIONS = [
@@ -446,6 +553,8 @@ export default function Tarot({
     [spreadKey],
   );
   const need = spread.positions.length;
+  /** 还在从牌堆里挑。窄屏这时只显示小地图，见抽牌屏 */
+  const drawing = !shuffling && picked.length < need;
   /** 解析解读用的位置名。身份要稳定，否则 ReadingBody 里的 useMemo 每次都白做 */
   const positionLabels = useMemo(() => spread.positions.map(p => p.label), [spread]);
 
@@ -720,11 +829,14 @@ export default function Tarot({
               <div>
                 <p className="pb-2 text-[12.5px] text-ink-mid">用哪个牌阵</p>
                 <div className="grid grid-cols-2 gap-px border border-ink/15 bg-ink/15">
-                  {SPREADS.map(sp => (
+                  {SPREADS.map((sp, i) => (
                     <button
                       key={sp.key}
                       onClick={() => setSpreadKey(sp.key)}
+                      // 总数是奇数时最后一个占满一行，不然网格末尾会露出一块灰底
                       className={`px-3 py-3 text-left transition-colors ${
+                        i === SPREADS.length - 1 && i % 2 === 0 ? 'col-span-2 ' : ''
+                      }${
                         sp.key === spreadKey
                           ? 'bg-ink text-paper'
                           : 'bg-paper hover:bg-paper-raised'
@@ -878,8 +990,37 @@ export default function Tarot({
                     牌再配 fluid —— 于是 1/3/5/10 张在任何屏宽都自动缩到放得下。
                   */}
                   <div className="lg:min-w-0 lg:flex-1">
+                  {/*
+                    窄屏抽牌时只摆一张「小地图」：页头 + 问题 230px、牌堆 373px，
+                    留给牌阵的只有一百来 px，大牌阵三行就是 690px，牌堆必然被挤到屏幕外，
+                    得滑下去抽、再滑上来看。小地图保留形状，每格只写序号 ——
+                    下一张落到哪个位置，牌堆底下那行字已经说了。
+                    抽满之后牌堆退场，换回下面的大牌阵翻牌。宽屏是两栏，用不着这个。
+                  */}
+                  {drawing && (
+                    <div
+                      className="mx-auto grid w-max gap-1.5 lg:hidden"
+                      style={{ gridTemplateColumns: `repeat(${spread.cols}, 24px)` }}
+                    >
+                      {spread.positions.map((pos, i) => (
+                        <div
+                          key={pos.key}
+                          className={`flex aspect-[2/3] items-center justify-center rounded-[3px] border font-mono text-[9px] tabular-nums transition-colors ${
+                            i < picked.length ? 'border-ink bg-ink text-paper'
+                              : i === picked.length ? 'border-vermilion bg-paper-raised text-vermilion'
+                              : 'border-ink/20 bg-paper-raised text-ink-faint'
+                          }`}
+                          style={{
+                            gridColumn: pos.col,
+                            gridRow: pos.row,
+                            ...(pos.cross ? { zIndex: 1, transform: 'rotate(90deg) scale(0.78)' } : null),
+                          }}
+                        >{i + 1}</div>
+                      ))}
+                    </div>
+                  )}
                   <div
-                    className="mx-auto grid justify-center gap-x-2 gap-y-4 sm:gap-x-4 sm:gap-y-5"
+                    className={`mx-auto grid justify-center gap-x-2 gap-y-1.5 sm:gap-x-4 sm:gap-y-5 ${drawing ? 'hidden lg:grid' : ''}`}
                     style={{
                       gridTemplateColumns: `repeat(${spread.cols}, minmax(0, 1fr))`,
                       maxWidth: spread.cols * spread.colWidth,
@@ -891,7 +1032,7 @@ export default function Tarot({
                       return (
                         <div
                           key={pos.key}
-                          className={pos.cross ? '' : 'space-y-2'}
+                          className={pos.cross ? '' : 'space-y-1 lg:space-y-2'}
                           style={{
                             gridColumn: pos.col,
                             gridRow: pos.row,
@@ -910,7 +1051,7 @@ export default function Tarot({
                           {!pos.cross && (
                           <div className="text-center">
                             {/* 原来这里还有一行 ORIGIN / PRESENT / TREND，是中文标签的拉丁复读，纯装饰 */}
-                            <p className={`font-serif text-[14px] font-semibold transition-colors ${
+                            <p className={`font-serif text-[14px] font-semibold transition-colors max-lg:leading-tight ${
                               card || isNext ? 'text-ink' : 'text-ink-faint'
                             }`}>{pos.label}</p>
                           </div>
@@ -993,9 +1134,13 @@ export default function Tarot({
                           )}
 
                           </div>
-                          {/* min-h 锁两行：各位置的 hint 长短不一，不锁高同一行的底边会参差 */}
+                          {/*
+                            min-h 锁两行：各位置的 hint 长短不一，不锁高同一行的底边会参差。
+                            窄屏不显示这一行：空位的 hint 只在抽牌时出现，而窄屏抽牌看的是小地图；
+                            剩下的「点一下翻开」标题已经说了，却要占两行高 —— 三行牌阵就因为它放不进一屏。
+                          */}
                           {!pos.cross && (
-                            <p className={`text-center text-[10px] leading-relaxed text-ink-faint ${
+                            <p className={`text-center text-[10px] leading-relaxed text-ink-faint max-lg:hidden ${
                               spread.cols <= 3 ? 'min-h-[2.9em]' : ''
                             }`}>
                               {card && !revealed.includes(i) ? '点一下翻开' : card ? '' : pos.hint}
