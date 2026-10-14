@@ -68,6 +68,11 @@ export interface SpreadPos {
   key: string;
   label: string;
   hint: string;
+  /**
+   * 第几列，可以是半格（1.5 = 落在第 1、2 列正中间）。
+   * 原图里常有「两张牌夹在三张牌中间」的排法（X 牌阵、感情修复），
+   * 只认整数列就只能把列数加倍、牌缩成一半 —— 手机上那就是 57px 的牌。
+   */
   col: number;
   row: number;
   /** 凯尔特十字的第 2 张：横压在第 1 张上面，这是这个牌阵的签名 */
@@ -87,8 +92,16 @@ export interface Spread {
    * 列数越多这个值越小 —— 否则 10 张牌在桌面上会堆到近 900px 高，得缩放才看得全。
    */
   colWidth: number;
+  /**
+   * 宽屏（两栏）时每列的上限，不写就和 colWidth 一样。
+   * 感情牌阵的 colWidth 是照手机定的 100，电脑上照这个摆，两边空一大片。
+   */
+  lgColWidth?: number;
   positions: SpreadPos[];
 }
+
+/** 半格靠这个实现：网格是 2×cols 个子列，每张牌跨两个，col 1.5 就从第 2 个子列起。整数列的牌宽和以前完全一样 */
+const colSpan = (col: number) => `${col * 2 - 1} / span 2`;
 
 /**
  * 牌阵的**形状**，直接从 positions 的 col/row 画出来。
@@ -102,13 +115,16 @@ export interface Spread {
  */
 function SpreadShape({ spread, on }: { spread: Spread; on: boolean }) {
   const W = 9, H = 13, GAP = 3;
+  const height = spread.rows * H + (spread.rows - 1) * GAP;
   return (
     <div
       aria-hidden="true"
       className="relative"
       style={{
         width: spread.cols * W + (spread.cols - 1) * GAP,
-        height: spread.rows * H + (spread.rows - 1) * GAP,
+        height,
+        // 图框固定 58px 高。四行是 61px、五行 77px，不缩就压到下面的牌阵名上
+        transform: height > 58 ? `scale(${58 / height})` : undefined,
       }}
     >
       {spread.positions.map((pos, i) => (
@@ -184,6 +200,263 @@ export const SPREADS: Spread[] = [
       { key: 'around', label: '周围', hint: '别人和环境的影响', col: 4, row: 3 },
       { key: 'hope', label: '期待与恐惧', hint: '你最盼的和最怕的', col: 4, row: 2 },
       { key: 'result', label: '结果', hint: '这条线走到头的样子', col: 4, row: 1 },
+    ],
+  },
+  /*
+    以下是感情专题牌阵，形状照原图摆，原图是错位排的地方就近落到格子上。
+    label 要短（窄屏一行 14px 只放得下五六个字），也是模型读到的位置名，所以得自己能说明白；
+    原图上那句完整的问题放在 hint 里。
+    手机上牌和牌堆里的一样大（92px）：列宽 100 = 牌宽 + 列间沟。再大三行就是 690px，手机上翻牌得一路往下滑。
+    宽屏另给 lgColWidth 130，牌用 md —— md 在手机上和 sm 一样，到 sm: 以上牌名才放大，配得上放大的牌。
+  */
+  {
+    key: 'revive', name: '复活我的爱人', note: '感情 · 复合 · 分手真因 · 5 张',
+    cols: 3, rows: 2, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'feel', label: 'TA的感情', hint: '对方对我的感情', col: 1, row: 1 },
+      { key: 'contact', label: '会联系我吗', hint: '对方是否会主动联系我', col: 2, row: 1 },
+      { key: 'reunite', label: '想复合吗', hint: 'TA 还想复合吗', col: 3, row: 1 },
+      { key: 'reason', label: '分手真因', hint: '对方内心最真实的分手原因', col: 1, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我应该怎么做', col: 3, row: 2 },
+    ],
+  },
+  {
+    key: 'revive2', name: '复活爱人 2.0', note: '分手想法 · 挽回态度 · 新的人 · 6 张',
+    cols: 3, rows: 2, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'breakup', label: '分手的想法', hint: 'TA 怎么看这次分手', col: 1, row: 1 },
+      { key: 'feel', label: '现在的感情', hint: 'TA 现在对我的感情', col: 2, row: 1 },
+      { key: 'contact', label: '会联系我吗', hint: 'TA 还会主动联系我吗', col: 3, row: 1 },
+      { key: 'winback', label: '挽回的态度', hint: '如果我去挽回，TA 会是什么态度', col: 1, row: 2 },
+      { key: 'others', label: '接触新人', hint: 'TA 是否在接触新的人', col: 2, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我现在应该怎么做', col: 3, row: 2 },
+    ],
+  },
+  {
+    key: 'cold-shoulder', name: '热脸贴冷屁股', note: '变心 · 不理我 · 持续多久 · 5 张',
+    cols: 3, rows: 2, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'changed', label: '变心了吗', hint: 'TA 是否变心', col: 1, row: 1 },
+      { key: 'ignore', label: '为何不理我', hint: 'TA 为什么不理我', col: 2, row: 1 },
+      { key: 'howlong', label: '会持续多久', hint: '这种情况会持续多久', col: 3, row: 1 },
+      { key: 'continue', label: '还能继续吗', hint: '这段关系还可以继续吗', col: 1, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我现在应该怎么做', col: 3, row: 2 },
+    ],
+  },
+  {
+    key: 'cold-heart', name: '你的心，好冰冷', note: '为何绝情 · 会不会改变态度 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'why', label: '为何绝情', hint: 'TA 为什么对我这么绝情', col: 2, row: 1 },
+      { key: 'thought', label: '真实想法', hint: 'TA 对这段关系真实的想法', col: 1, row: 2 },
+      { key: 'feel', label: '现在的情感', hint: 'TA 现在对我的情感', col: 2, row: 2 },
+      { key: 'change', label: '会改变吗', hint: 'TA 会改变态度吗', col: 3, row: 2 },
+      { key: 'todo', label: '我该怎么做', hint: '我现在应该怎么做', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'tug', name: '极限拉扯', note: '这段关系是否值得 · 6 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'need', label: '你的需求', hint: '你在这段关系里到底要什么', col: 2, row: 3 },
+      { key: 'hesitate', label: 'TA犹豫的原因', hint: '是什么让 TA 迟迟不定', col: 1, row: 2 },
+      { key: 'stuck', label: '停滞的根源', hint: '关系卡住不动的根源', col: 3, row: 2 },
+      { key: 'third', label: '第三方介入', hint: '是否有第三方介入', col: 1, row: 1 },
+      { key: 'turn', label: '转机', hint: '什么时候会有转机', col: 2, row: 1 },
+      { key: 'todo', label: '我该如何做', hint: '接下来我该怎么做', col: 3, row: 1 },
+    ],
+  },
+  {
+    key: 'pursuit', name: '求爱之路', note: '好感 · 推进 · 能不能在一起 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'interest', label: '好感程度', hint: 'TA 对我有兴趣吗，好感有多少', col: 2, row: 1 },
+      { key: 'image', label: '我在TA眼中', hint: '在 TA 眼里我是个什么样的人', col: 1, row: 2 },
+      { key: 'push', label: '会主动推进吗', hint: 'TA 会主动推进关系吗', col: 2, row: 2 },
+      { key: 'develop', label: '能更进一步吗', hint: '朋友能不能暧昧，暧昧能不能在一起', col: 3, row: 2 },
+      { key: 'todo', label: '下一步怎么走', hint: '如果想更进一步，我该怎么做', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'first-sight', name: '一见钟情', note: '第一眼 · 还会见面吗 · 5 张',
+    cols: 2, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'first', label: '第一眼', hint: '第一眼见到我时，TA 心里在想什么', col: 2, row: 1 },
+      { key: 'develop', label: '想发展吗', hint: 'TA 是否想和我进一步发展', col: 1, row: 2 },
+      { key: 'meet', label: '还会见面吗', hint: '我们还会再见面吗', col: 2, row: 2 },
+      { key: 'attitude', label: '相处的态度', hint: 'TA 打算怎么和我相处，对我什么态度', col: 1, row: 3 },
+      { key: 'want', label: '想见我吗', hint: 'TA 想见我吗', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'lovebrain', name: '恋爱脑五连问', note: '理想型 · 喜欢我什么 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'looks', label: '理想型外貌', hint: 'TA 的理想型长什么样、什么身材', col: 2, row: 1 },
+      { key: 'type', label: '理想型性格', hint: 'TA 理想中的伴侣是什么性格', col: 1, row: 2 },
+      { key: 'me', label: '我的外貌', hint: 'TA 眼中我的外貌，是不是 TA 的理想型', col: 2, row: 2 },
+      { key: 'why', label: '喜欢我什么', hint: 'TA 为什么喜欢我', col: 3, row: 2 },
+      { key: 'physical', label: '生理吸引', hint: 'TA 对我有没有生理上的喜欢', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'lovebrain2', name: '恋爱脑 2.0', note: 'TA 和前任 · 放下了吗 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'then', label: '对前任如何', hint: '和前任在一起时，TA 对前任怎么样', col: 2, row: 1 },
+      { key: 'why', label: '为何分手', hint: 'TA 和前任为什么分手', col: 1, row: 2 },
+      { key: 'mode', label: '相处模式', hint: 'TA 和前任是怎么相处的', col: 3, row: 2 },
+      { key: 'over', label: '放下了吗', hint: 'TA 是否已经放下前任', col: 1, row: 3 },
+      { key: 'place', label: '前任的地位', hint: '前任在 TA 心里是什么位置', col: 3, row: 3 },
+    ],
+  },
+  /*
+    下面九个照第二批原图摆。原图上的「他」「对方」「占卜者」一律改成「TA」「你」，和上面一致。
+    原图里两张牌夹在三张中间的地方用半格（col 带 .5）摆，不加列数 —— 列一多手机上牌就缩成一条。
+  */
+  {
+    key: 'venus', name: '维纳斯之爱', note: '双方真心 · 未来心境 · 8 张',
+    cols: 3, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'myheart', label: '你的真心', hint: '你对这段感情的真心', col: 1, row: 2 },
+      { key: 'theirheart', label: 'TA的真心', hint: 'TA 对这段感情的真心', col: 3, row: 2 },
+      { key: 'myinfl', label: '你受的影响', hint: '你在这段感情里受到的影响', col: 2, row: 1 },
+      { key: 'theirinfl', label: 'TA受的影响', hint: 'TA 在这段感情里受到的影响', col: 2, row: 2 },
+      { key: 'block', label: '问题阻碍', hint: '你们之间的问题和阻碍', col: 2, row: 3 },
+      { key: 'result', label: '结果', hint: '这段感情的结果', col: 2, row: 4 },
+      { key: 'myfuture', label: '你未来心境', hint: '你以后的心境', col: 1, row: 3 },
+      { key: 'theirfuture', label: 'TA未来心境', hint: 'TA 以后的心境', col: 3, row: 3 },
+    ],
+  },
+  {
+    /* 原图中间是 7 横压在 8 上，和凯尔特十字同一个画法，所以 7 用 cross —— 它的标签也因此不在格子里显示 */
+    key: 'sincere', name: '是否真心', note: '真心 · 隐瞒 · 背叛过吗 · 8 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'sincere', label: '真心吗', hint: 'TA 对你是否真心', col: 1, row: 2 },
+      { key: 'real', label: '真实的TA', hint: '真实的 TA 是什么样', col: 1, row: 3 },
+      { key: 'thought', label: '真实想法', hint: 'TA 对你的真实想法', col: 3, row: 2 },
+      { key: 'status', label: 'TA以为的现状', hint: 'TA 以为你们的感情现在是什么样', col: 3, row: 3 },
+      { key: 'circle', label: '身边人看你', hint: 'TA 身边的人怎么看你', col: 2, row: 1 },
+      { key: 'hide', label: '有无隐瞒', hint: 'TA 对你有没有隐瞒，隐瞒的是什么', col: 2, row: 3 },
+      { key: 'betray', label: '背叛过吗', hint: 'TA 是否背叛过这段感情', col: 2, row: 2, cross: true },
+      { key: 'future', label: 'TA未来的样子', hint: 'TA 以后在这段关系里会是什么样子', col: 2, row: 2 },
+    ],
+  },
+  {
+    key: 'mirror-rival', name: '破镜重圆 · 有情敌', note: '你 · 前任 · 情敌 · 策略 · 11 张',
+    cols: 3, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'mypast', label: '你的过去', hint: '你的过去', col: 1, row: 1 },
+      { key: 'mynow', label: '你的现状', hint: '你的现状', col: 2, row: 1 },
+      { key: 'result', label: '复合的结果', hint: '复合的结果', col: 3, row: 1 },
+      { key: 'expast', label: '前任过去', hint: '前任的过去', col: 1, row: 2 },
+      { key: 'exnow', label: '前任现状', hint: '前任的现状', col: 2, row: 2 },
+      { key: 'exview', label: '前任的看法', hint: '前任怎么看你，复合有没有可能', col: 3, row: 2 },
+      { key: 'rivalpast', label: '情敌过去', hint: '情敌的过去', col: 1, row: 3 },
+      { key: 'rivalnow', label: '情敌现状', hint: '情敌的现状', col: 2, row: 3 },
+      { key: 'clash', label: '交锋的未来', hint: '情敌与你交锋的未来', col: 3, row: 3 },
+      { key: 'edge', label: '情敌优势', hint: '情敌的优势，也就是你的劣势', col: 1.5, row: 4 },
+      { key: 'todo', label: '策略建议', hint: '你该用什么策略', col: 2.5, row: 4 },
+    ],
+  },
+  {
+    key: 'lover', name: '爱人', note: '关心 · 忠诚 · 结婚 · 金钱 · 10 张',
+    cols: 3, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'care', label: '关心你吗', hint: 'TA 关心你吗', col: 2, row: 1 },
+      { key: 'stable', label: '稳定吗', hint: '你们稳定吗', col: 3, row: 2 },
+      { key: 'seek', label: '共同追求', hint: '你们所追求的', col: 2, row: 2 },
+      { key: 'loyal', label: '忠诚可靠吗', hint: 'TA 忠诚、可靠吗', col: 1, row: 2 },
+      { key: 'attract', label: '吸引的原因', hint: '你们互相吸引的原因', col: 3, row: 3 },
+      { key: 'marry', label: '想过结婚吗', hint: 'TA 有考虑过结婚吗', col: 2, row: 3 },
+      { key: 'traits', label: '优点缺点', hint: 'TA 的优点和缺点', col: 1, row: 3 },
+      { key: 'money', label: '分享金钱', hint: '彼此能不能互相分享金钱', col: 3, row: 4 },
+      { key: 'stay', label: '停留或离开', hint: 'TA 会为你停留还是离开', col: 2, row: 4 },
+      { key: 'result', label: '结果', hint: '这段关系的结果', col: 1, row: 4 },
+    ],
+  },
+  {
+    /*
+      照原图：左边一竖是 TA 的（犹豫 / 阻力 / 留恋），右边一竖是你的，
+      中间上下是「影响了 TA / 影响了你」，两张看法夹在正中，底下三张收尾。
+      四列加半格：「影响了TA」「是否真诚」落在正中间（2.5），底下三张错开半格。
+    */
+    key: 'repair', name: '感情修复', note: '双方的犹豫 · 阻力 · 留恋 · 13 张',
+    cols: 4, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'theirview', label: 'TA的看法', hint: 'TA 怎么看待这段感情', col: 2, row: 2 },
+      { key: 'myview', label: '你的看法', hint: '你怎么看待这段感情', col: 3, row: 2 },
+      { key: 'theirinfl', label: '影响了TA', hint: '这段感情影响了 TA 什么', col: 2.5, row: 1 },
+      { key: 'myinfl', label: '影响了你', hint: '这段感情影响了你什么', col: 2.5, row: 3 },
+      { key: 'myhesitate', label: '你的犹豫', hint: '你对这段感情犹豫在哪里', col: 4, row: 1 },
+      { key: 'theirhesitate', label: 'TA的犹豫', hint: 'TA 对这段感情犹豫在哪里', col: 1, row: 1 },
+      { key: 'theirstay', label: 'TA的留恋', hint: 'TA 对这段感情留恋什么', col: 1, row: 3 },
+      { key: 'mystay', label: '你的留恋', hint: '你对这段感情留恋什么', col: 4, row: 3 },
+      { key: 'theirpush', label: 'TA的阻力', hint: '是什么阻力让 TA 想放弃这段感情', col: 1, row: 2 },
+      { key: 'mypush', label: '你的阻力', hint: '是什么阻力让你想放弃这段感情', col: 4, row: 2 },
+      { key: 'fix', label: '如何修复', hint: '这段感情要怎么修复', col: 1.5, row: 4 },
+      { key: 'month', label: '下月趋势', hint: '这段感情未来一个月的趋势', col: 3.5, row: 4 },
+      { key: 'honest', label: '是否真诚', hint: '这段感情是否完全真诚', col: 2.5, row: 4 },
+    ],
+  },
+  {
+    key: 'mirror', name: '破镜重圆', note: '双方现状 · 态度 · 能否复合 · 7 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'mynow', label: '你的现状', hint: '你现在的状况', col: 1, row: 1 },
+      { key: 'block', label: '分开的原因', hint: '你们在一起时的阻碍，或者分开的原因', col: 2, row: 1 },
+      { key: 'myattitude', label: '你的态度', hint: '你对这段感情的态度', col: 3, row: 1 },
+      { key: 'theirnow', label: 'TA的现状', hint: 'TA 现在的状况', col: 1, row: 2 },
+      { key: 'theirattitude', label: 'TA的态度', hint: 'TA 看待这段感情的态度', col: 2, row: 2 },
+      { key: 'others', label: '有新感情吗', hint: 'TA 是否已经开始了新的感情', col: 3, row: 2 },
+      { key: 'result', label: '能复合吗', hint: '能不能成功复合', col: 2, row: 3 },
+    ],
+  },
+  {
+    /* 原图是一个 X：1→4 从左上斜到右下，5→8 从右上斜到左下 */
+    key: 'breakup', name: '分手探寻', note: '分手原因 · 双方想法 · 结局 · 8 张',
+    cols: 4, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'mynow', label: '你的现状', hint: '你现在的状况', col: 1, row: 1 },
+      { key: 'theirnow', label: 'TA的现状', hint: 'TA 现在的状况', col: 2, row: 2 },
+      { key: 'base', label: '感情基础', hint: '你们的感情基础', col: 3, row: 3 },
+      { key: 'reason', label: '分手原因', hint: '分手的原因', col: 4, row: 4 },
+      { key: 'mythought', label: '你的想法', hint: '你的想法', col: 4, row: 1 },
+      { key: 'theirthought', label: 'TA的想法', hint: 'TA 的想法', col: 3, row: 2 },
+      { key: 'todo', label: '建议', hint: '建议', col: 2, row: 3 },
+      { key: 'end', label: '结局', hint: '最后的结局', col: 1, row: 4 },
+    ],
+  },
+  {
+    /* 原图是 V 字，四层要七列，手机上牌会小到看不清；收成三列三行的 U，顺序和左右两臂不变 */
+    key: 'future-lover', name: '未来恋人', note: '是不是正缘 · 7 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'who', label: 'TA是怎样的人', hint: 'TA 是一个怎样的人', col: 1, row: 1 },
+      { key: 'appeared', label: '出现了吗', hint: 'TA 是否已经出现', col: 1, row: 2 },
+      { key: 'sign', label: '相遇的提示', hint: '遇到 TA 时会有什么提示或特点', col: 1, row: 3 },
+      { key: 'attract', label: '如何吸引TA', hint: '怎么吸引 TA 向你靠近', col: 2, row: 3 },
+      { key: 'challenge', label: '会有的挑战', hint: '和 TA 在一起会遇到什么挑战', col: 3, row: 3 },
+      { key: 'gain', label: '会收获什么', hint: '和 TA 在一起会收获什么', col: 3, row: 2 },
+      { key: 'trend', label: '未来趋势', hint: '未来发展的趋势', col: 3, row: 1 },
+    ],
+  },
+  {
+    /* 原图是五列的 X；三列加半格就能摆出同一个 X，手机上牌还是三列的大小 */
+    key: 'x-reunite', name: 'X 牌阵 · 复合', note: '复合的阻碍 · 双方想法 · 10 张',
+    cols: 3, rows: 5, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'past', label: '你们过去', hint: '你们的过去', col: 1, row: 1 },
+      { key: 'mynow', label: '你的现状', hint: '你现在的状况', col: 1.5, row: 2 },
+      { key: 'theirnow', label: 'TA的现状', hint: 'TA 现在的状况', col: 2, row: 3 },
+      { key: 'mythought', label: '你的想法', hint: '你对复合的想法', col: 2.5, row: 4 },
+      { key: 'theirthought', label: 'TA的想法', hint: 'TA 对复合的想法', col: 3, row: 5 },
+      { key: 'block', label: '阻碍你的', hint: '阻碍你的是什么', col: 3, row: 1 },
+      { key: 'help', label: '帮助你的', hint: '能帮到你的是什么', col: 2.5, row: 2 },
+      { key: 'unknown', label: '未知的事', hint: '你还不知道的事', col: 1.5, row: 4 },
+      { key: 'result', label: '结果', hint: '复合的结果', col: 1, row: 5 },
+      { key: 'guide', label: '指引', hint: '指引牌', col: 2, row: 1 },
     ],
   },
 ];
@@ -570,14 +843,46 @@ export default function Tarot({
    * 仍会溢出，只能往下滚一点；三张牌阵 525 高也装得下，800 高时只有凯尔特十字要滚一点。
    */
   const slotColW = useMemo(() => {
-    if (!sideBySide) return spread.colWidth;
+    /*
+      竖排（手机）时翻牌区在帘子和她下面，本来就要滚下去才看得到，
+      所以这里只保证**整组牌位不高于一屏**：滚下去之后能一眼看全，不用翻一张滚一下。
+      一行 ≈ 牌高 + 标签和说明约 77px（390×844 实测）。三行以内这个上限比屏宽还宽，等于不起作用；
+      感情牌阵四五行才会收。下限 68：再窄「圣杯皇后」在牌面上就折行了。
+      返回的是一列的预算，含 8px 的列间沟。
+    */
+    if (!sideBySide) {
+      const card = Math.max(68, ((vh - 40) / spread.rows - 77) / 1.5);
+      return Math.min(spread.colWidth, card + 8);
+    }
     const figure = Math.min(250, Math.max(150, vh * 0.24));
     const overlap = Math.min(78, Math.max(40, vh * 0.07));
     // 报头 110 + 她 − 桌沿压住的 + 穗子 11 + 上边距 12 + 右栏顶上的说明约 124
     // （问题、落到哪、下一张的说明、线稿那一行，四行；按三行估的时候差了 1px 掉出屏幕）
     const top = 110 + figure - overlap + 11 + 12 + 124;
     const perRow = (vh - top - 24) / spread.rows;
-    return Math.max(44, Math.min(spread.colWidth, (perRow - 48) / 1.5));
+    return Math.max(44, Math.min(spread.lgColWidth ?? spread.colWidth, (perRow - 48) / 1.5));
+  }, [sideBySide, vh, spread]);
+
+  /**
+   * 宽屏翻牌区每一格的宽度。牌按 slotColW 缩，格子不跟着缩到比牌位名还窄：
+   * 四五行的牌阵在 900 高的屏幕上牌只有 45px 左右，而牌位名是 14px 的四五个字（约 70px），
+   * 格子跟着牌一起窄，相邻两格的名字就叠成「你的真心TA受的影响TA的真心」。
+   */
+  const slotGridW = sideBySide ? Math.max(slotColW, 84) : slotColW;
+
+  /**
+   * 翻开屏每一列的预算（含列间沟）。
+   *
+   * 原来是 colWidth × 1.25，不看高度。宽屏照旧：电脑上滚一下很自然，翻开屏是回报，牌就该大一档。
+   * 手机上不行 —— 四五行的感情牌阵底边到了 1047px（390×844），一眼看不全这一屏就白给了。
+   * 所以手机按行数反算：一行 ≈ 牌高 + 标签和行距约 42px，牌阵上面的报头和问题约 240px，再留 25px 给牌的投影和屏幕底边。
+   * 三行以内这个上限比屏宽还宽，等于不起作用。下限 68：再窄「圣杯皇后」在牌面上就折行了。
+   */
+  const readColW = useMemo(() => {
+    const base = (sideBySide ? (spread.lgColWidth ?? spread.colWidth) : spread.colWidth) * 1.25;
+    if (sideBySide) return base;
+    const card = Math.max(68, ((vh - 265) / spread.rows - 42) / 1.5);
+    return Math.min(base, card + 8);
   }, [sideBySide, vh, spread]);
   /** 解析解读用的位置名。身份要稳定，否则 ReadingBody 里的 useMemo 每次都白做 */
   const positionLabels = useMemo(() => spread.positions.map(p => p.label), [spread]);
@@ -1261,8 +1566,8 @@ export default function Tarot({
             <div
               className="mx-auto grid justify-center gap-x-2 gap-y-4 sm:gap-x-4 sm:gap-y-5"
               style={{
-                gridTemplateColumns: `repeat(${spread.cols}, minmax(0, 1fr))`,
-                maxWidth: sideBySide ? spread.cols * slotColW + (spread.cols - 1) * 16 : spread.cols * slotColW,
+                gridTemplateColumns: `repeat(${spread.cols * 2}, minmax(0, 1fr))`,
+                maxWidth: sideBySide ? spread.cols * slotGridW + (spread.cols - 1) * 16 : spread.cols * slotColW,
               }}
             >
               {spread.positions.map((pos, i) => {
@@ -1273,7 +1578,7 @@ export default function Tarot({
                     key={pos.key}
                     className={pos.cross ? '' : 'space-y-2'}
                     style={{
-                      gridColumn: pos.col,
+                      gridColumn: colSpan(pos.col),
                       gridRow: pos.row,
                       /*
                         「阻碍」和「现况」占同一格，横压在上面 —— 这是凯尔特十字的签名。
@@ -1301,7 +1606,11 @@ export default function Tarot({
                          0.78 之后宽度约 1.17 格，多出来的那点正好落进列间沟里 ——
                          压过去一点是对的（实体牌就是这样），盖住邻居不是。
                     */}
-                    <div ref={el => { slotRefs.current[i] = el; }} style={pos.cross ? { transform: 'rotate(90deg) scale(0.78)' } : undefined}>
+                    <div ref={el => { slotRefs.current[i] = el; }} style={{
+                      // 宽屏格子比牌宽（见 slotGridW），牌按 slotColW 居中
+                      ...(slotGridW > slotColW ? { width: slotColW, marginInline: 'auto' } : null),
+                      ...(pos.cross ? { transform: 'rotate(90deg) scale(0.78)' } : null),
+                    }}>
 
                     {card ? (
                       /* 落位：从 U 上飞过来的动画在外层 div 上（见 flyFrom），这里只管翻牌 */
@@ -1415,9 +1724,9 @@ export default function Tarot({
               <div
                 className="mx-auto grid justify-center gap-x-2 gap-y-4 sm:gap-x-4 sm:gap-y-5"
                 style={{
-                  gridTemplateColumns: `repeat(${spread.cols}, minmax(0, 1fr))`,
-                  // 翻开屏是回报，给大一档
-                  maxWidth: spread.cols * spread.colWidth * 1.25,
+                  gridTemplateColumns: `repeat(${spread.cols * 2}, minmax(0, 1fr))`,
+                  // 翻开屏是回报，给大一档 —— 但要一屏看得全，见 readColW
+                  maxWidth: spread.cols * readColW,
                 }}
               >
                 {drawn.map((c, i) => {
@@ -1427,14 +1736,14 @@ export default function Tarot({
                       key={i}
                       className="space-y-2.5"
                       style={{
-                        gridColumn: pos.col,
+                        gridColumn: colSpan(pos.col),
                         gridRow: pos.row,
                         // 同抽牌屏：只转牌，不转字
                         ...(pos.cross ? { zIndex: 2, alignSelf: 'center', justifySelf: 'center', width: '100%' } : null),
                       }}
                     >
                       {!pos.cross && (
-                        <p className="text-center font-serif text-[14px] font-semibold">{pos.label}</p>
+                        <p className="whitespace-nowrap text-center font-serif text-[14px] font-semibold">{pos.label}</p>
                       )}
                       <div style={pos.cross ? { transform: 'rotate(90deg) scale(0.78)' } : undefined}>
                         <TarotCard name={c.name} reversed={c.reversed} size={spread.card} fluid />
