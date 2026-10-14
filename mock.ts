@@ -48,7 +48,7 @@ export function mockTarotReading(
   const head = verdict
     ? `恋爱分析已经给出结论：失衡度 ${verdict.score}，${verdict.band}，${verdict.lean}`
       + `${verdict.driver ? `，最主要的失衡来自「${verdict.driver}」` : ''}。`
-      + '下面三张牌不推翻它 —— 牌是随机的，数字不是。'
+      + '下面这些牌不推翻它 —— 牌是随机的，数字不是。'
     : '恋爱分析没有出结论，下面只有牌意。';
 
   return MARK + `你问的是「${question}」。\n\n${head}\n\n${lines.join('\n\n')}`;

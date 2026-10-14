@@ -238,40 +238,40 @@ export default function TarotCard({
         这条带是现成的、稳定的暗底，把它们放进来，画面也彻底干净了。
       */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#150629] via-[#150629]/88 to-transparent px-2.5 pb-2.5 pt-9">
-        <div className="relative text-center">
+        <div className="text-center">
           {/*
+            序号和「逆」单独占牌名上面一行，左右两头各一个。
+
+            原来它们是 absolute 贴在牌名那一行的左下、右下角，牌宽的时候中间够放牌名；
+            牌阵一多牌就窄（手机上 68–76px），「XVIII」盖住「THE MOON」，「↓逆」压在「权杖六」上。
+            挪到上面一行之后它们和牌名、拉丁名不再共用一行，多窄都撞不上。
+            这一行**一直占着**（没有序号、不是逆位就空着）：
+            否则同一排里有的牌多一行、有的没有，牌名就高低不齐。
+
             序号只给大阿卡纳。
             小阿卡纳的 index 是「8」「皇后」这种，而牌名本身就叫「圣杯八」「圣杯皇后」——
-            等于同一件事说两遍，还把拉丁名挤在两个标记中间。
-            只有大阿卡纳的罗马数字是牌的身份的一部分（VI 之于恋人），留着。
+            等于同一件事说两遍。只有大阿卡纳的罗马数字是牌的身份的一部分（VI 之于恋人），留着。
           */}
-          {id.suit === 'major' && (
-            <span className={`${s.idx} absolute left-0 bottom-0.5 font-mono tracking-[0.2em] text-white/50`}>
-              {id.index}
-            </span>
-          )}
+          <div className={`${s.idx} mb-1 flex h-[1.2em] items-center justify-between font-mono leading-none`}>
+            <span className="tracking-[0.12em] text-white/50">{id.suit === 'major' ? id.index : ''}</span>
+            {reversed && (
+              <span className="flex items-center gap-0.5 tracking-[0.15em]" style={{ color: accent }}>
+                <svg viewBox="0 0 10 10" className="h-2 w-2" aria-hidden="true">
+                  <path d="M5 1v8M2 6l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                逆
+              </span>
+            )}
+          </div>
           <div className={`${s.name} font-serif leading-none text-white`}>{name}</div>
           {/*
-            拉丁名只在 sm: 以上出现。
-            100px 宽的牌上它是 6px，本来就读不出来，却会和右下角的「逆」标记撞在一起
-            （9 OF WANDS 正好压住逆位标记）。宽度不够就别硬塞：
+            拉丁名只在 sm: 以上出现。100px 宽的牌上它是 6px，本来就读不出来。
             它和中文牌名指的是同一张牌，小屏少它一行不丢任何信息。
           */}
           <div className={`${s.latin} mt-1 hidden font-mono uppercase tracking-[0.22em] text-white/45 sm:block`}>
             {id.latin}
           </div>
-          {reversed && (
-            <span
-              className={`${s.idx} absolute right-0 bottom-0.5 flex items-center gap-0.5 font-mono tracking-[0.15em]`}
-              style={{ color: accent }}
-            >
-              <svg viewBox="0 0 10 10" className="h-2 w-2" aria-hidden="true">
-                <path d="M5 1v8M2 6l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.4"
-                  strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              逆
-            </span>
-          )}
         </div>
       </div>
 
