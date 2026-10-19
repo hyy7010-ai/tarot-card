@@ -672,7 +672,8 @@ function ReadingBody({
           .filter(f => !!f.text);
         return (
           <article key={i} className="border-t border-ink/15 pt-6 first:border-t-0 first:pt-0">
-            <div className="sm:grid sm:grid-cols-[1fr_15rem] sm:gap-8">
+            {/* 只有挂了证据才分两栏。没接聊天记录时没有证据，右栏留空，正文会被挤在左边一半多 */}
+            <div className={cited.length > 0 ? 'sm:grid sm:grid-cols-[1fr_15rem] sm:gap-8' : undefined}>
               <div>
                 <p className="font-serif text-[16px] font-semibold leading-snug">{b.heading}</p>
                 <p className="mt-3 whitespace-pre-wrap text-[14px] leading-[2]">{b.body}</p>
