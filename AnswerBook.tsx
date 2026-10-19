@@ -22,8 +22,7 @@ import { Candle } from './TarotRoom';
 const HOLD_MS = 700;
 /**
  * 按住时每隔多久翻过一页、每页翻多久。
- * 原来是 110ms 一页 —— 快得只剩一片白，字一个都看不见。180ms 眼睛刚好扫得到每一句，
- * 连起来仍然是「哗哗」在翻。
+ * 180ms 一页，连起来是「哗哗」在翻，每一页的页码还认得出在跳。
  */
 const RIFFLE_EVERY = 180;
 const RIFFLE_MS = 340;
@@ -35,12 +34,15 @@ const MAX_HOLD_MS = 6000;
 const KEY_RIFFLE_MS = 900;
 
 type Phase = 'closed' | 'riffling' | 'open';
-type Sheet = { text: string; page: number };
+type Sheet = { page: number };
 type Leaf = Sheet & { id: number; ms: number };
 
-/** 随手一页：翻的过程中露出来的那些，不是答案 */
+/**
+ * 随手一页：翻的过程中露出来的那些，不是答案。
+ * 只有页码，不印字 —— 翻的时候瞥见别的答案，等于还没问完就先剧透了，
+ * 停下来那一页的那句话就不稀奇了。字只在松手停下的那一页上出现。
+ */
 const randomSheet = (): Sheet => ({
-  text: ANSWERS[Math.floor(Math.random() * ANSWERS.length)],
   page: 1 + Math.floor(Math.random() * ANSWERS.length),
 });
 
@@ -136,11 +138,6 @@ function Page({ children, page }: { children?: React.ReactNode; page: number | n
   );
 }
 
-/** 翻的过程中那些页上的字：看得清，但比停下来那句答案小一号、浅一档 */
-const RiffleText = ({ text }: { text: string }) => (
-  <p className="text-center font-serif text-[19px] font-semibold leading-[1.5] text-ink/70 [text-wrap:balance] sm:text-[21px]">{text}</p>
-);
-
 /** 线 · 菱形 · 线 */
 const Divider = ({ accent }: { accent: string }) => (
   <span className="flex items-center gap-2" aria-hidden="true">
@@ -164,9 +161,8 @@ export default function AnswerBook({ onBack }: { onBack: () => void }) {
   const [page, setPage] = useState<number | null>(null);
   const [leaves, setLeaves] = useState<Leaf[]>([]);
   /**
-   * 翻的过程中，底下那一页印着什么。
-   * 真的书每一页都有字：翻起来的那页就是你刚刚看着的那页，它一走，下一页的字就露出来。
-   * 所以每翻一页，翻起来的是「现在这页」，底下换成新的一页 —— 前后接得上，一直有字可看。
+   * 翻的过程中，底下那一页是第几页（只有页码，不印字，见 randomSheet）。
+   * 每翻一页，翻起来的是「现在这页」，底下换成新的一页 —— 页码前后接得上。
    */
   const [under, setUnder] = useState<Sheet | null>(null);
   const underRef = useRef<Sheet | null>(null);
@@ -311,7 +307,6 @@ export default function AnswerBook({ onBack }: { onBack: () => void }) {
 
             {/* 底下那一页：翻的过程中是一页空白的，停下来时换成答案 */}
             <Page page={page !== null ? page + 1 : under?.page ?? null}>
-              {page === null && under && <RiffleText text={under.text} />}
               {page !== null && (
                 <>
                   <Divider accent="bg-vermilion" />
@@ -321,7 +316,7 @@ export default function AnswerBook({ onBack }: { onBack: () => void }) {
               )}
             </Page>
 
-            {/* 正在翻过去的书页：每页都是真的书页，能瞥见一句别的答案 */}
+            {/* 正在翻过去的书页：空白的纸页，只有页码 */}
             {leaves.map(l => (
               <div
                 key={l.id}
@@ -329,9 +324,7 @@ export default function AnswerBook({ onBack }: { onBack: () => void }) {
                 style={{ '--leaf-ms': `${l.ms}ms` } as React.CSSProperties}
                 aria-hidden="true"
               >
-                <Page page={l.page}>
-                  <RiffleText text={l.text} />
-                </Page>
+                <Page page={l.page} />
                 <span className="book-leaf-shade absolute inset-0 rounded-r-md bg-gradient-to-l from-black/35 to-transparent" style={{ '--leaf-ms': `${l.ms}ms` } as React.CSSProperties} />
               </div>
             ))}
