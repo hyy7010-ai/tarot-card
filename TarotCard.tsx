@@ -208,7 +208,7 @@ export default function TarotCard({
       onClick={onClick}
       whileHover={onClick ? { y: -6 } : undefined}
       transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-      className={`${w} aspect-[2/3] ${s.radius} relative overflow-hidden bg-[#150629]
+      className={`${w} @container aspect-[2/3] ${s.radius} relative overflow-hidden bg-[#150629]
         ${onClick ? 'cursor-pointer' : ''} ${className}`}
       style={{ boxShadow: `0 10px 30px -14px rgba(23,19,14,.55)` }}
     >
@@ -236,8 +236,13 @@ export default function TarotCard({
         正好是粉色云堆和橙色器物，那两个标记在上面几乎读不出来。
         浮在画上的小标签本来就是妥协：底色不可控，可读性就没有下限。
         这条带是现成的、稳定的暗底，把它们放进来，画面也彻底干净了。
+
+        字号和带子高度按**这张牌自己多宽**收（@container），不按屏幕宽：
+        md / lg 在 sm: 以上用的是大牌的字号，可电脑上翻牌那一步牌阵要塞进一屏，
+        五行的牌阵牌只有 60px 宽 —— 15px 的牌名被挤成竖排，英文名和渐隐带盖住了大半张画。
+        窄于 100px：牌名回到小字号、带子收薄；窄于 110px：不放英文名。宽的牌一像素不变。
       */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#150629] via-[#150629]/88 to-transparent px-2.5 pb-2.5 pt-9">
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#150629] via-[#150629]/88 to-transparent px-2.5 pb-2.5 pt-9 @max-[100px]:px-1 @max-[100px]:pb-1.5 @max-[100px]:pt-5">
         <div className="text-center">
           {/*
             序号和「逆」单独占牌名上面一行，左右两头各一个。
@@ -252,7 +257,7 @@ export default function TarotCard({
             小阿卡纳的 index 是「8」「皇后」这种，而牌名本身就叫「圣杯八」「圣杯皇后」——
             等于同一件事说两遍。只有大阿卡纳的罗马数字是牌的身份的一部分（VI 之于恋人），留着。
           */}
-          <div className={`${s.idx} mb-1 flex h-[1.2em] items-center justify-between font-mono leading-none`}>
+          <div className={`${s.idx} mb-1 flex h-[1.2em] items-center justify-between font-mono leading-none @max-[100px]:mb-0.5 @max-[100px]:text-[8px]!`}>
             <span className="tracking-[0.12em] text-white/50">{id.suit === 'major' ? id.index : ''}</span>
             {reversed && (
               <span className="flex items-center gap-0.5 tracking-[0.15em]" style={{ color: accent }}>
@@ -264,12 +269,12 @@ export default function TarotCard({
               </span>
             )}
           </div>
-          <div className={`${s.name} font-serif leading-none text-white`}>{name}</div>
+          <div className={`${s.name} whitespace-nowrap font-serif leading-none text-white @max-[100px]:text-[11px]! @max-[72px]:text-[10px]!`}>{name}</div>
           {/*
             拉丁名只在 sm: 以上出现。100px 宽的牌上它是 6px，本来就读不出来。
             它和中文牌名指的是同一张牌，小屏少它一行不丢任何信息。
           */}
-          <div className={`${s.latin} mt-1 hidden font-mono uppercase tracking-[0.22em] text-white/45 sm:block`}>
+          <div className={`${s.latin} mt-1 hidden font-mono uppercase tracking-[0.22em] text-white/45 sm:block @max-[110px]:hidden!`}>
             {id.latin}
           </div>
         </div>

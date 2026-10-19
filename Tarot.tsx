@@ -839,8 +839,10 @@ export default function Tarot({
    * 两栏时牌位底下不放说明：说明在 33px 宽的牌位下面会被挤成五行，每行都被它撑高，
    * 所以改成右栏顶上只写下一张的说明。（按 36 估的时候，关系牌阵在 800 高的屏幕里
    * 底边落在 799，只差 1px。）
-   * 下限 44：再小翻开也看不出是什么牌。矮窗口（525 高）里三行、四行的牌阵到了下限
-   * 仍会溢出，只能往下滚一点；三张牌阵 525 高也装得下，800 高时只有凯尔特十字要滚一点。
+   * 下限 80。原来是 44，可感情牌阵有四五行，在 600 高上下的窗口里一路缩到 44–60px，
+   * 翻开之后只看得到一团字，看不到画（实测用户反馈「都看不到卡牌」）。
+   * 宁可往下滚一点，也要翻开那一下看得见是哪张牌。
+   * 代价：900 高的屏幕上三行以上的牌阵要滚一点，525 高时连三张牌阵也要滚三十来 px。
    */
   const slotColW = useMemo(() => {
     /*
@@ -860,7 +862,7 @@ export default function Tarot({
     // （问题、落到哪、下一张的说明、线稿那一行，四行；按三行估的时候差了 1px 掉出屏幕）
     const top = 110 + figure - overlap + 11 + 12 + 124;
     const perRow = (vh - top - 24) / spread.rows;
-    return Math.max(44, Math.min(spread.lgColWidth ?? spread.colWidth, (perRow - 48) / 1.5));
+    return Math.max(80, Math.min(spread.lgColWidth ?? spread.colWidth, (perRow - 48) / 1.5));
   }, [sideBySide, vh, spread]);
 
   /**
