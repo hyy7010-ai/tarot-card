@@ -449,6 +449,126 @@ export const SPREADS: Spread[] = [
       { key: 'guide', label: '指引', hint: '指引牌', col: 2, row: 1 },
     ],
   },
+  /*
+    第三批，暧昧 / 单恋专题。原图写「我」的保留「我」（和第一批一样），「他」「对方」改成「TA」；
+    原图本来就写「你」的（真心表露）保留「你」。
+    原图里有两张横放、两张斜放的牌（真心把戏、暧昧交织），它们不压在别的牌上，只是摆拍的姿势，
+    这里一律竖放 —— 横压只留给真的叠在另一张上面的 cross。
+  */
+  {
+    key: 'one-way', name: '情感单向状态', note: '了解我多少 · 期待 · 想确认关系吗 · 6 张',
+    cols: 3, rows: 2, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'know', label: '了解我多少', hint: 'TA 了解我的程度', col: 1, row: 1 },
+      { key: 'expect', label: '对我的期待', hint: 'TA 对我的期待', col: 2, row: 1 },
+      { key: 'define', label: '怎么定义关系', hint: 'TA 如何定义我们的关系', col: 3, row: 1 },
+      { key: 'feel', label: '对我的感觉', hint: 'TA 对我的感觉', col: 1, row: 2 },
+      { key: 'sincere', label: '是不是真心', hint: 'TA 是不是真心', col: 2, row: 2 },
+      { key: 'confirm', label: '想确认关系吗', hint: 'TA 想和我确认关系吗', col: 3, row: 2 },
+    ],
+  },
+  {
+    /* 原图和上一个同名，按前面的惯例叫 2.0。形状是从左上往右下错落的一条折线 */
+    key: 'one-way2', name: '情感单向状态 2.0', note: '喜不喜欢我 · 为何退步 · 该主动吗 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'like', label: '喜不喜欢我', hint: 'TA 喜不喜欢我', col: 1.5, row: 1 },
+      { key: 'retreat', label: 'TA为何退步', hint: 'TA 为什么往后退了', col: 2.5, row: 2 },
+      { key: 'warm', label: '还能升温吗', hint: '这段感情还能升温吗', col: 3, row: 3 },
+      { key: 'active', label: '我该主动吗', hint: '我该不该主动', col: 1, row: 2 },
+      { key: 'develop', label: '关系发展', hint: '这段关系接下来会怎么发展', col: 2, row: 3 },
+    ],
+  },
+  {
+    /* 原图 6 落在正中、比 2 和 3 低半行；放在中间一行，正好是这个牌阵的核心 */
+    key: 'flirt-probe', name: '暧昧试探', note: '理想型 · 底线 · 能突破吗 · 6 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'ideal', label: 'TA的理想型', hint: 'TA 的理想型是什么样', col: 2, row: 1 },
+      { key: 'bottom', label: 'TA的底线', hint: 'TA 的底线是什么', col: 1, row: 2 },
+      { key: 'attract', label: '容易吸引TA的', hint: '什么样的人、什么特质容易吸引 TA', col: 3, row: 2 },
+      { key: 'pace', label: '暧昧节奏', hint: 'TA 的暧昧节奏', col: 1, row: 3 },
+      { key: 'break', label: '关系能突破吗', hint: '我们的关系能突破吗', col: 3, row: 3 },
+      { key: 'realfeel', label: '真实感受', hint: 'TA 对我的真实感受', col: 2, row: 2 },
+    ],
+  },
+  {
+    key: 'first-meet', name: '初相识', note: '第一印象 · 有没有好感 · 怎么相处 · 6 张',
+    cols: 2, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'impression', label: '第一印象', hint: 'TA 对我的第一印象', col: 1, row: 1 },
+      { key: 'offend', label: '有冒犯到吗', hint: '我有没有冒犯到 TA 的地方', col: 2, row: 1 },
+      { key: 'like', label: '有没有好感', hint: 'TA 对我有没有好感', col: 1, row: 2 },
+      { key: 'next', label: '对我的下一步', hint: 'TA 对我的下一步打算', col: 2, row: 2 },
+      { key: 'develop', label: '能发展吗', hint: '我们有没有发展的可能', col: 1, row: 3 },
+      { key: 'howto', label: '该如何相处', hint: '我该怎么和 TA 相处', col: 2, row: 3 },
+    ],
+  },
+  {
+    key: 'heart-game', name: '真心把戏', note: '放下过往 · 依赖 · 当恋爱对象吗 · 8 张',
+    cols: 3, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'past', label: '放下过往了吗', hint: 'TA 放下过往了吗', col: 2, row: 1 },
+      { key: 'body', label: '身体吸引力', hint: '我的身体对 TA 的吸引力', col: 1, row: 2 },
+      { key: 'depend', label: '情感依赖', hint: 'TA 对我的情感依赖程度', col: 3, row: 2 },
+      { key: 'worry', label: '有无顾虑', hint: 'TA 对这段关系是否有顾虑', col: 2, row: 3 },
+      { key: 'judge', label: '如何评价我', hint: 'TA 如何评价我', col: 2, row: 2 },
+      { key: 'decide', label: 'TA的决定', hint: '这段关系，TA 的决定是什么', col: 1, row: 3 },
+      { key: 'others', label: '和别人聊吗', hint: 'TA 有没有和别人聊', col: 3, row: 3 },
+      { key: 'lover', label: '当恋爱对象吗', hint: 'TA 有没有把我当「恋爱对象」来发展', col: 2, row: 4 },
+    ],
+  },
+  {
+    /* 原图最后三张共用一个问题「我们的关系会到哪一步」，按从左到右拆成眼前、接下来、最后 */
+    key: 'flirt-filter', name: '暧昧滤镜', note: '双方的滤镜 · 替代品吗 · 会到哪一步 · 7 张',
+    cols: 3, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'myfilter', label: '我对TA的滤镜', hint: '我对 TA 有什么滤镜', col: 2, row: 1 },
+      { key: 'standin', label: '我是替代品吗', hint: '我是不是别人的替代品', col: 1, row: 2 },
+      { key: 'wish', label: 'TA希望的爱', hint: 'TA 所希望的爱是什么样', col: 3, row: 2 },
+      { key: 'theirfilter', label: 'TA对我的滤镜', hint: 'TA 对我有什么滤镜', col: 2, row: 3 },
+      { key: 'step1', label: '眼前这一步', hint: '我们的关系会到哪一步：眼前这一步', col: 1, row: 4 },
+      { key: 'step2', label: '接下来', hint: '我们的关系会到哪一步：再往后走', col: 2, row: 4 },
+      { key: 'step3', label: '最后到哪', hint: '我们的关系会到哪一步：最后停在哪', col: 3, row: 4 },
+    ],
+  },
+  {
+    key: 'heart-reveal', name: '真心表露', note: '隐瞒 · 误会 · 暧昧的方向 · 5 张',
+    cols: 3, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'hide', label: '刻意隐瞒', hint: 'TA 刻意隐瞒的迹象', col: 2, row: 1 },
+      { key: 'misread', label: '你误会TA的', hint: '你可能误会 TA 的地方', col: 1, row: 2 },
+      { key: 'imagine', label: '如何想象你们', hint: 'TA 如何想象你们', col: 3, row: 2 },
+      { key: 'sign', label: '喜欢的迹象', hint: 'TA 如果喜欢你，会出现的迹象', col: 2, row: 3 },
+      { key: 'direction', label: '暧昧的方向', hint: '这段暧昧真实的方向', col: 2, row: 2 },
+    ],
+  },
+  {
+    key: 'love-trace', name: '恋爱寻踪', note: '是否喜欢 · 目的 · 会在一起吗 · 6 张',
+    cols: 2, rows: 3, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'plan', label: '对我的打算', hint: 'TA 对我的打算', col: 1, row: 1 },
+      { key: 'like', label: '是否喜欢', hint: 'TA 是否喜欢我', col: 2, row: 1 },
+      { key: 'intent', label: 'TA的目的', hint: 'TA 接近我的目的、意图', col: 1, row: 2 },
+      { key: 'date', label: '想跟我谈吗', hint: 'TA 想跟我谈恋爱吗', col: 2, row: 2 },
+      { key: 'others', label: '有跟别人聊吗', hint: 'TA 有没有在跟别人聊', col: 1, row: 3 },
+      { key: 'together', label: '会在一起吗', hint: '我们会在一起吗', col: 2, row: 3 },
+    ],
+  },
+  {
+    /* 「三方」是原图的说法，指第三方 */
+    key: 'flirt-weave', name: '暧昧交织', note: 'TA · 我 · 第三方 · 会选择我吗 · 7 张',
+    cols: 3, rows: 4, colWidth: 100, lgColWidth: 130, card: 'md',
+    positions: [
+      { key: 'theirnow', label: 'TA的现状', hint: 'TA 现在的状况', col: 2, row: 1 },
+      { key: 'tome', label: '对我的感觉', hint: 'TA 对我的感觉', col: 1, row: 2 },
+      { key: 'tothird', label: '对三方的感觉', hint: 'TA 对第三方的感觉', col: 3, row: 2 },
+      { key: 'menext', label: '对我的下一步', hint: 'TA 对我的下一步', col: 1.5, row: 3 },
+      { key: 'thirdnext', label: '对三方下一步', hint: 'TA 对第三方的下一步', col: 2.5, row: 3 },
+      { key: 'choose', label: '会选择我吗', hint: 'TA 会选择我吗', col: 1, row: 4 },
+      { key: 'where', label: '会走到哪一步', hint: '我们会走到哪一步', col: 3, row: 4 },
+    ],
+  },
 ];
 
 const PRESET_QUESTIONS = [
